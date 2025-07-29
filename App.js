@@ -9,13 +9,14 @@ import {
   Pressable,
 } from 'react-native';
 import TaskItem from './components/TaskItem';
+import Checkbox from 'expo-checkbox';
+
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export default function App() {
-  const [tasks, setTasks] = useState([
-    { id: '1', name: 'Take vitamins', done: false },
-    { id: '2', name: 'Feed the dog', done: true },
-  ]);
+  const [tasks, setTasks] = useState([]);
   const [newTask, setNewTask] = useState('');
+  const [selectedDays, setSelectedDays] = useState([]);
 
   const toggleTask = (id) => {
     setTasks((prev) =>
@@ -30,9 +31,15 @@ export default function App() {
     if (!trimmed) return;
     setTasks((prev) => [
       ...prev,
-      { id: Date.now().toString(), name: trimmed, done: false },
+      {
+        id: Date.now().toString(),
+        name: trimmed,
+        done: false,
+        days: [...selectedDays],
+      },
     ]);
     setNewTask('');
+    setSelectedDays([]);
   };
 
   return (
@@ -50,6 +57,35 @@ export default function App() {
         <Pressable style={styles.button} onPress={addTask}>
           <Text style={styles.buttonText}>Add</Text>
         </Pressable>
+      </View>
+
+      {/* Day selector */}
+      <View style={styles.daysRow}>
+        {DAYS.map((day) => {
+          const selected = selectedDays.includes(day);
+          return (
+            <Pressable
+              key={day}
+              onPress={() =>
+                setSelectedDays((prev) =>
+                  prev.includes(day)
+                    ? prev.filter((d) => d !== day)
+                    : [...prev, day]
+                )
+              }
+              style={[
+                styles.dayButton,
+                selected && styles.dayButtonSelected,
+              ]}
+            >
+              <Text
+                style={selected ? styles.dayTextSelected : styles.dayText}
+              >
+                {day}
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
 
       {/* Task list */}
@@ -78,7 +114,7 @@ const styles = StyleSheet.create({
   },
   inputRow: {
     flexDirection: 'row',
-    marginBottom: 20,
+    marginBottom: 12,
     alignItems: 'center',
   },
   input: {
@@ -97,6 +133,31 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   buttonText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  daysRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 12,
+  },
+  dayButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 6,
+    marginRight: 6,
+    marginBottom: 6,
+  },
+  dayButtonSelected: {
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
+  },
+  dayText: {
+    color: '#333',
+  },
+  dayTextSelected: {
     color: '#fff',
     fontWeight: '600',
   },
