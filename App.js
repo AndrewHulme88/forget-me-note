@@ -12,6 +12,7 @@ import TaskItem from './components/TaskItem';
 import Checkbox from 'expo-checkbox';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const today = DAYS[new Date().getDay()];
 
 export default function App() {
   const [tasks, setTasks] = useState([]);
@@ -90,7 +91,9 @@ export default function App() {
 
       {/* Task list */}
       <FlatList
-        data={tasks}
+        data={tasks.filter(
+          (task) => task.days.length === 0 || task.days.includes(today)
+        )}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <TaskItem task={item} onToggle={toggleTask} />
