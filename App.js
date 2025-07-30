@@ -206,13 +206,11 @@ export default function App() {
           contentContainerStyle={{ paddingBottom: 100 }}
           renderItem={({ item }) => (
             <TaskItem
-              task={{
-                ...item,
-                done: item.done?.[selectedString] || false,
-              }}
+              task={{ ...item, done: item.done?.[selectedString] || false }}
               onToggle={toggleTask}
               onDelete={deleteTask}
               disabled={!canToggle}
+              darkMode={darkMode}
             />
           )}
         />

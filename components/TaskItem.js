@@ -1,50 +1,69 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
-import Checkbox from 'expo-checkbox';
-import { MaterialIcons } from '@expo/vector-icons';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { FontAwesome } from '@expo/vector-icons';
 
-export default function TaskItem({ task, onToggle, onDelete, disabled }) {
+const PRIMARY = '#4A4A58';
+
+export default function TaskItem({ task, onToggle, onDelete, disabled, darkMode }) {
   return (
-    <View style={styles.container}>
-      <Checkbox
-        value={task.done}
-        onValueChange={() => onToggle(task.id)}
-        disabled={disabled}
-      />
-      <Text style={[styles.text, task.done && styles.done]}>
+    <View style={[styles.card, darkMode && styles.darkCard]}>
+      <Pressable
+        onPress={() => !disabled && onToggle(task.id)}
+        style={[styles.checkbox, task.done && styles.checked]}
+      >
+        {task.done && <FontAwesome name="check" size={16} color="#fff" />}
+      </Pressable>
+      <Text
+        style={[
+          styles.text,
+          task.done && styles.doneText,
+          darkMode && styles.darkText,
+        ]}
+      >
         {task.name}
       </Text>
-      <Pressable onPress={() => onDelete(task.id)} style={styles.delete}>
-        <MaterialIcons name="delete" size={20} color="#ff3b30" />
+      <Pressable onPress={() => onDelete(task.id)}>
+        <FontAwesome name="trash" size={18} color="#cc0000" />
       </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    minHeight: 60,
+  card: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderBottomColor: '#e2e2e2',
-    borderBottomWidth: 1,
     backgroundColor: '#fff',
-    borderRadius: 6,
-    marginBottom: 8,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  darkCard: {
+    backgroundColor: '#2a2a2d',
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderWidth: 2,
+    borderColor: PRIMARY,
+    marginRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 4,
+  },
+  checked: {
+    backgroundColor: PRIMARY,
   },
   text: {
-    marginLeft: 10,
-    fontSize: 16,
     flex: 1,
-    color: '#1c1c1e',
+    fontSize: 16,
+    color: '#333',
   },
-  done: {
+  darkText: {
+    color: '#fff',
+  },
+  doneText: {
     textDecorationLine: 'line-through',
-    color: '#999',
-  },
-  delete: {
-    padding: 6,
+    opacity: 0.5,
   },
 });
