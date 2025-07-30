@@ -128,20 +128,29 @@ export default function App() {
   });
 
   return (
-    <SafeAreaView style={[styles.container, darkMode && styles.darkContainer]} {...panResponder.panHandlers}>
+    <SafeAreaView
+      style={[styles.container, darkMode && styles.darkContainer]}
+      {...panResponder.panHandlers}
+    >
       <Animated.View style={{ transform: [{ translateX: slideAnim }] }}>
         <View style={styles.navRow}>
-          {!atStart && (
-            <Pressable onPress={() => animateSlide(-1)}>
-              <Text style={[styles.navText, darkMode && styles.darkText]}>←</Text>
-            </Pressable>
-          )}
-          <Text style={[styles.dateText, darkMode && styles.darkText]}>{selectedDate.toDateString()}</Text>
-          {!atEnd && (
-            <Pressable onPress={() => animateSlide(1)}>
-              <Text style={[styles.navText, darkMode && styles.darkText]}>→</Text>
-            </Pressable>
-          )}
+          <View style={{ width: 32 }}>
+            {!atStart && (
+              <Pressable onPress={() => animateSlide(-1)}>
+                <Text style={[styles.navText, darkMode && styles.darkText]}>←</Text>
+              </Pressable>
+            )}
+          </View>
+          <Text style={[styles.dateText, darkMode && styles.darkText]}>
+            {selectedDate.toDateString()}
+          </Text>
+          <View style={{ width: 32, alignItems: 'flex-end' }}>
+            {!atEnd && (
+              <Pressable onPress={() => animateSlide(1)}>
+                <Text style={[styles.navText, darkMode && styles.darkText]}>→</Text>
+              </Pressable>
+            )}
+          </View>
         </View>
 
         {canToggle && (
@@ -175,7 +184,14 @@ export default function App() {
                       }
                       style={[styles.dayButton, selected && styles.dayButtonSelected]}
                     >
-                      <Text style={selected ? styles.dayTextSelected : styles.dayText}>{day}</Text>
+                      <Text
+                        style={[
+                          selected ? styles.dayTextSelected : styles.dayText,
+                          !selected && darkMode && { color: '#fff' },
+                        ]}
+                      >
+                        {day}
+                      </Text>
                     </Pressable>
                   );
                 })}
@@ -207,7 +223,9 @@ export default function App() {
           <Text style={styles.footerButtonText}>Today</Text>
         </Pressable>
         <Pressable onPress={() => setDarkMode((prev) => !prev)} style={styles.footerButton}>
-          <Text style={styles.footerButtonText}>{darkMode ? 'Light Mode' : 'Dark Mode'}</Text>
+          <Text style={styles.footerButtonText}>
+            {darkMode ? 'Light Mode' : 'Dark Mode'}
+          </Text>
         </Pressable>
       </View>
     </SafeAreaView>
@@ -316,7 +334,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
+    gap: 16,
     padding: 16,
     backgroundColor: '#f4f7fa',
     borderTopWidth: 1,
