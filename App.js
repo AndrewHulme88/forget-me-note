@@ -7,6 +7,7 @@ import {
   StyleSheet,
   TextInput,
   Pressable,
+  PanResponder
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import TaskItem from './components/TaskItem';
@@ -47,6 +48,21 @@ export default function App() {
     AsyncStorage.setItem('tasks', JSON.stringify(tasks));
   }, [tasks]);
 
+  const panResponder = PanResponder.create({
+    onMoveShouldSetPanResponder: (_, gestureState) =>
+      Math.abs(gestureState.dx) > 20, // detect horizontal swipes
+
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dx < -50 && !atEnd) {
+        // swipe left → go forward
+        setSelectedDate((prev) => new Date(prev.getTime() + 86400000));
+      } else if (gestureState.dx > 50 && !atStart) {
+        // swipe right → go back
+        setSelectedDate((prev) => new Date(prev.getTime() - 86400000));
+      }
+    },
+  });
+
   const toggleTask = (id) => {
     if (!canToggle) return;
     setTasks((prev) =>
@@ -84,7 +100,7 @@ export default function App() {
     .sort((a, b) => a.done - b.done);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} {...panResponder.panHandlers}>
       <Text style={styles.title}>Tasks for {selectedString}</Text>
 
       {/* Date navigation */}
