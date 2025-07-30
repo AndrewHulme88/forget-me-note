@@ -1,22 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import {
   View,
-  Text,
   FlatList,
   SafeAreaView,
   StyleSheet,
-  TextInput,
-  Pressable,
-  PanResponder,
   Animated,
-  ScrollView,
+  PanResponder,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import TaskItem from './components/TaskItem';
 import * as Haptics from 'expo-haptics';
+import Header from './components/Header';
+import TaskInput from './components/TaskInput';
+import TaskItem from './components/TaskItem';
+import Footer from './components/Footer';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const PRIMARY = '#4A4A58'; // neutral dark grey
+const PRIMARY = '#4A4A58';
 
 export default function App() {
   const [tasks, setTasks] = useState([]);
@@ -37,8 +36,8 @@ export default function App() {
   const endDate = new Date(today);
   endDate.setDate(today.getDate() + 5);
 
-  const atStart = selectedDate.toDateString() === startDate.toDateString();
-  const atEnd = selectedDate.toDateString() === endDate.toDateString();
+  const atStart = selectedString === startDate.toDateString();
+  const atEnd = selectedString === endDate.toDateString();
 
   useEffect(() => {
     const load = async () => {
@@ -54,7 +53,7 @@ export default function App() {
 
   const toggleTask = (id) => {
     if (!canToggle) return;
-    const dateKey = selectedDate.toDateString();
+    const dateKey = selectedString;
     setTasks((prev) =>
       prev.map((task) =>
         task.id === id
@@ -133,71 +132,23 @@ export default function App() {
       {...panResponder.panHandlers}
     >
       <Animated.View style={{ transform: [{ translateX: slideAnim }] }}>
-        <View style={styles.navRow}>
-          <View style={{ width: 32 }}>
-            {!atStart && (
-              <Pressable onPress={() => animateSlide(-1)}>
-                <Text style={[styles.navText, darkMode && styles.darkText]}>←</Text>
-              </Pressable>
-            )}
-          </View>
-          <Text style={[styles.dateText, darkMode && styles.darkText]}>
-            {selectedDate.toDateString()}
-          </Text>
-          <View style={{ width: 32, alignItems: 'flex-end' }}>
-            {!atEnd && (
-              <Pressable onPress={() => animateSlide(1)}>
-                <Text style={[styles.navText, darkMode && styles.darkText]}>→</Text>
-              </Pressable>
-            )}
-          </View>
-        </View>
+        <Header
+          selectedDate={selectedDate}
+          darkMode={darkMode}
+          animateSlide={animateSlide}
+          atStart={atStart}
+          atEnd={atEnd}
+        />
 
         {canToggle && (
-          <View style={[styles.addTaskCard, darkMode && styles.darkCard]}>
-            <View style={styles.inputRow}>
-              <TextInput
-                placeholder="New task"
-                value={newTask}
-                onChangeText={setNewTask}
-                style={[styles.input, darkMode && styles.darkInput]}
-                placeholderTextColor={darkMode ? '#ccc' : '#888'}
-              />
-              <Pressable style={styles.button} onPress={addTask}>
-                <Text style={styles.buttonText}>Add</Text>
-              </Pressable>
-            </View>
-
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={styles.daysRow}>
-                {DAYS.map((day) => {
-                  const selected = selectedDays.includes(day);
-                  return (
-                    <Pressable
-                      key={day}
-                      onPress={() =>
-                        setSelectedDays((prev) =>
-                          prev.includes(day)
-                            ? prev.filter((d) => d !== day)
-                            : [...prev, day]
-                        )
-                      }
-                      style={[styles.dayButton, selected && styles.dayButtonSelected]}
-                    >
-                      <Text
-                        style={[
-                          selected ? styles.dayTextSelected : styles.dayText,
-                          !selected && darkMode && { color: '#fff' },
-                        ]}
-                      >
-                        {day}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </ScrollView>
-          </View>
+          <TaskInput
+            newTask={newTask}
+            setNewTask={setNewTask}
+            selectedDays={selectedDays}
+            setSelectedDays={setSelectedDays}
+            addTask={addTask}
+            darkMode={darkMode}
+          />
         )}
 
         <FlatList
@@ -216,16 +167,11 @@ export default function App() {
         />
       </Animated.View>
 
-      <View style={[styles.footer, darkMode && styles.darkFooter]}>
-        <Pressable onPress={() => setSelectedDate(new Date())} style={styles.footerButton}>
-          <Text style={styles.footerButtonText}>Today</Text>
-        </Pressable>
-        <Pressable onPress={() => setDarkMode((prev) => !prev)} style={styles.footerButton}>
-          <Text style={styles.footerButtonText}>
-            {darkMode ? 'Light Mode' : 'Dark Mode'}
-          </Text>
-        </Pressable>
-      </View>
+      <Footer
+        darkMode={darkMode}
+        setDarkMode={setDarkMode}
+        resetToToday={() => setSelectedDate(new Date())}
+      />
     </SafeAreaView>
   );
 }
@@ -239,118 +185,5 @@ const styles = StyleSheet.create({
   },
   darkContainer: {
     backgroundColor: '#1c1c1e',
-  },
-  navRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  navText: {
-    fontSize: 24,
-    paddingHorizontal: 10,
-    color: PRIMARY,
-  },
-  darkText: {
-    color: '#fff',
-  },
-  dateText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#333',
-  },
-  addTaskCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 1 },
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  darkCard: {
-    backgroundColor: '#2a2a2d',
-  },
-  inputRow: {
-    flexDirection: 'row',
-    marginBottom: 12,
-    alignItems: 'center',
-  },
-  input: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 6,
-    padding: 10,
-    fontSize: 16,
-    backgroundColor: '#fff',
-  },
-  darkInput: {
-    backgroundColor: '#444',
-    color: '#fff',
-    borderColor: '#666',
-  },
-  button: {
-    marginLeft: 10,
-    backgroundColor: PRIMARY,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 6,
-  },
-  buttonText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  daysRow: {
-    flexDirection: 'row',
-    flexWrap: 'nowrap',
-  },
-  dayButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 6,
-    marginRight: 6,
-  },
-  dayButtonSelected: {
-    backgroundColor: PRIMARY,
-    borderColor: PRIMARY,
-  },
-  dayText: {
-    color: '#333',
-  },
-  dayTextSelected: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 16,
-    padding: 16,
-    backgroundColor: '#f4f7fa',
-    borderTopWidth: 1,
-    borderColor: '#ddd',
-  },
-  darkFooter: {
-    backgroundColor: '#1c1c1e',
-    borderColor: '#444',
-  },
-  footerButton: {
-    backgroundColor: PRIMARY,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 6,
-  },
-  footerButtonText: {
-    color: '#fff',
-    fontWeight: '600',
   },
 });
