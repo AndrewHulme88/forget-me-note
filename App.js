@@ -123,9 +123,9 @@ export default function App() {
 
       {/* Task list */}
       <FlatList
-        data={tasks.filter(
-          (task) => task.days.length === 0 || task.days.includes(today)
-        )}
+        data={tasks
+          .filter((task) => task.days.length === 0 || task.days.includes(today))
+          .sort((a, b) => a.done - b.done)}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
             <TaskItem
