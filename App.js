@@ -46,6 +46,10 @@ export default function App() {
     setSelectedDays([]);
   };
 
+  const deleteTask = (id) => {
+    setTasks((prev) => prev.filter((task) => task.id !== id));
+  };
+
   useEffect(() => {
     const loadTasks = async () => {
       try {
@@ -124,7 +128,11 @@ export default function App() {
         )}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <TaskItem task={item} onToggle={toggleTask} />
+            <TaskItem
+              task={item}
+              onToggle={toggleTask}
+              onDelete={deleteTask}
+            />
         )}
       />
     </SafeAreaView>
