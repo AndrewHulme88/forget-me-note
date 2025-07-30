@@ -10,6 +10,9 @@ import {
 } from 'react-native';
 import TaskItem from './components/TaskItem';
 import Checkbox from 'expo-checkbox';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useEffect } from 'react';
+
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const today = DAYS[new Date().getDay()];
@@ -42,6 +45,31 @@ export default function App() {
     setNewTask('');
     setSelectedDays([]);
   };
+
+  useEffect(() => {
+    const loadTasks = async () => {
+      try {
+        const json = await AsyncStorage.getItem('tasks');
+        if (json != null) {
+          setTasks(JSON.parse(json));
+        }
+      } catch (e) {
+        console.error('Failed to load tasks:', e);
+      }
+    };
+    loadTasks();
+  }, []);
+
+  useEffect(() => {
+    const saveTasks = async () => {
+      try {
+        await AsyncStorage.setItem('tasks', JSON.stringify(tasks));
+      } catch (e) {
+        console.error('Failed to save tasks:', e);
+      }
+    };
+    saveTasks();
+  }, [tasks]);
 
   return (
     <SafeAreaView style={styles.container}>
