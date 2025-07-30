@@ -25,13 +25,12 @@ export default function App() {
 
   const today = new Date();
   const todayString = today.toDateString();
-  const selectedDayName = DAYS[selectedDate.getDay()];
   const selectedString = selectedDate.toDateString();
+  const selectedDayName = DAYS[selectedDate.getDay()];
   const canToggle = todayString === selectedString;
 
   const startDate = new Date(today);
   startDate.setDate(today.getDate() - 6);
-
   const endDate = new Date(today);
   endDate.setDate(today.getDate() + 5);
 
@@ -52,9 +51,20 @@ export default function App() {
 
   const toggleTask = (id) => {
     if (!canToggle) return;
+
+    const dateKey = selectedDate.toDateString();
+
     setTasks((prev) =>
       prev.map((task) =>
-        task.id === id ? { ...task, done: !task.done } : task
+        task.id === id
+          ? {
+              ...task,
+              done: {
+                ...task.done,
+                [dateKey]: !task.done?.[dateKey],
+              },
+            }
+          : task
       )
     );
   };
@@ -71,7 +81,7 @@ export default function App() {
       {
         id: Date.now().toString(),
         name: trimmed,
-        done: false,
+        done: {}, // per-date completion
         days: [...selectedDays],
       },
     ]);
@@ -84,7 +94,11 @@ export default function App() {
       (task) =>
         task.days.length === 0 || task.days.includes(selectedDayName)
     )
-    .sort((a, b) => a.done - b.done);
+    .sort((a, b) => {
+      const aDone = a.done?.[selectedString] || false;
+      const bDone = b.done?.[selectedString] || false;
+      return aDone - bDone;
+    });
 
   const animateSlide = (direction) => {
     Animated.timing(slideAnim, {
@@ -92,7 +106,10 @@ export default function App() {
       duration: 150,
       useNativeDriver: true,
     }).start(() => {
-      setSelectedDate((prev) => new Date(prev.getTime() + direction * 86400000));
+      setSelectedDate((prev) =>
+        new Date(prev.getTime() + direction * 86400000)
+      );
+
       slideAnim.setValue(direction * 50);
       Animated.timing(slideAnim, {
         toValue: 0,
@@ -108,10 +125,10 @@ export default function App() {
     onPanResponderRelease: (_, gestureState) => {
       if (gestureState.dx < -50 && !atEnd) {
         Haptics.selectionAsync();
-        animateSlide(1); // swipe left
+        animateSlide(1);
       } else if (gestureState.dx > 50 && !atStart) {
         Haptics.selectionAsync();
-        animateSlide(-1); // swipe right
+        animateSlide(-1);
       }
     },
   });
@@ -121,30 +138,20 @@ export default function App() {
       <Animated.View style={{ transform: [{ translateX: slideAnim }] }}>
         <Text style={styles.title}>Tasks for {selectedString}</Text>
 
-        {/* Date navigation */}
         <View style={styles.navRow}>
           {!atStart && (
-            <Pressable
-              onPress={() =>
-                animateSlide(-1)
-              }
-            >
+            <Pressable onPress={() => animateSlide(-1)}>
               <Text style={styles.navText}>←</Text>
             </Pressable>
           )}
           <Text style={styles.dateText}>{selectedDate.toDateString()}</Text>
           {!atEnd && (
-            <Pressable
-              onPress={() =>
-                animateSlide(1)
-              }
-            >
+            <Pressable onPress={() => animateSlide(1)}>
               <Text style={styles.navText}>→</Text>
             </Pressable>
           )}
         </View>
 
-        {/* Input form (today only) */}
         {canToggle && (
           <>
             <View style={styles.inputRow}>
@@ -191,13 +198,15 @@ export default function App() {
           </>
         )}
 
-        {/* Task list */}
         <FlatList
           data={filteredTasks}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <TaskItem
-              task={item}
+              task={{
+                ...item,
+                done: item.done?.[selectedString] || false,
+              }}
               onToggle={toggleTask}
               onDelete={deleteTask}
               disabled={!canToggle}
