@@ -9,18 +9,21 @@ import {
   Pressable,
   PanResponder,
   Animated,
+  ScrollView,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import TaskItem from './components/TaskItem';
 import * as Haptics from 'expo-haptics';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const PRIMARY = '#4A4A58'; // neutral dark grey
 
 export default function App() {
   const [tasks, setTasks] = useState([]);
   const [newTask, setNewTask] = useState('');
   const [selectedDays, setSelectedDays] = useState([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [darkMode, setDarkMode] = useState(false);
   const slideAnim = useState(new Animated.Value(0))[0];
 
   const today = new Date();
@@ -51,9 +54,7 @@ export default function App() {
 
   const toggleTask = (id) => {
     if (!canToggle) return;
-
     const dateKey = selectedDate.toDateString();
-
     setTasks((prev) =>
       prev.map((task) =>
         task.id === id
@@ -81,7 +82,7 @@ export default function App() {
       {
         id: Date.now().toString(),
         name: trimmed,
-        done: {}, // per-date completion
+        done: {},
         days: [...selectedDays],
       },
     ]);
@@ -90,10 +91,7 @@ export default function App() {
   };
 
   const filteredTasks = tasks
-    .filter(
-      (task) =>
-        task.days.length === 0 || task.days.includes(selectedDayName)
-    )
+    .filter((task) => task.days.length === 0 || task.days.includes(selectedDayName))
     .sort((a, b) => {
       const aDone = a.done?.[selectedString] || false;
       const bDone = b.done?.[selectedString] || false;
@@ -106,10 +104,7 @@ export default function App() {
       duration: 150,
       useNativeDriver: true,
     }).start(() => {
-      setSelectedDate((prev) =>
-        new Date(prev.getTime() + direction * 86400000)
-      );
-
+      setSelectedDate((prev) => new Date(prev.getTime() + direction * 86400000));
       slideAnim.setValue(direction * 50);
       Animated.timing(slideAnim, {
         toValue: 0,
@@ -120,8 +115,7 @@ export default function App() {
   };
 
   const panResponder = PanResponder.create({
-    onMoveShouldSetPanResponder: (_, gestureState) =>
-      Math.abs(gestureState.dx) > 20,
+    onMoveShouldSetPanResponder: (_, gestureState) => Math.abs(gestureState.dx) > 20,
     onPanResponderRelease: (_, gestureState) => {
       if (gestureState.dx < -50 && !atEnd) {
         Haptics.selectionAsync();
@@ -134,73 +128,66 @@ export default function App() {
   });
 
   return (
-    <SafeAreaView style={styles.container} {...panResponder.panHandlers}>
+    <SafeAreaView style={[styles.container, darkMode && styles.darkContainer]} {...panResponder.panHandlers}>
       <Animated.View style={{ transform: [{ translateX: slideAnim }] }}>
-        <Text style={styles.title}>Tasks for {selectedString}</Text>
-
         <View style={styles.navRow}>
           {!atStart && (
             <Pressable onPress={() => animateSlide(-1)}>
-              <Text style={styles.navText}>←</Text>
+              <Text style={[styles.navText, darkMode && styles.darkText]}>←</Text>
             </Pressable>
           )}
-          <Text style={styles.dateText}>{selectedDate.toDateString()}</Text>
+          <Text style={[styles.dateText, darkMode && styles.darkText]}>{selectedDate.toDateString()}</Text>
           {!atEnd && (
             <Pressable onPress={() => animateSlide(1)}>
-              <Text style={styles.navText}>→</Text>
+              <Text style={[styles.navText, darkMode && styles.darkText]}>→</Text>
             </Pressable>
           )}
         </View>
 
         {canToggle && (
-          <>
+          <View style={[styles.addTaskCard, darkMode && styles.darkCard]}>
             <View style={styles.inputRow}>
               <TextInput
                 placeholder="New task"
                 value={newTask}
                 onChangeText={setNewTask}
-                style={styles.input}
+                style={[styles.input, darkMode && styles.darkInput]}
+                placeholderTextColor={darkMode ? '#ccc' : '#888'}
               />
               <Pressable style={styles.button} onPress={addTask}>
                 <Text style={styles.buttonText}>Add</Text>
               </Pressable>
             </View>
 
-            <View style={styles.daysRow}>
-              {DAYS.map((day) => {
-                const selected = selectedDays.includes(day);
-                return (
-                  <Pressable
-                    key={day}
-                    onPress={() =>
-                      setSelectedDays((prev) =>
-                        prev.includes(day)
-                          ? prev.filter((d) => d !== day)
-                          : [...prev, day]
-                      )
-                    }
-                    style={[
-                      styles.dayButton,
-                      selected && styles.dayButtonSelected,
-                    ]}
-                  >
-                    <Text
-                      style={
-                        selected ? styles.dayTextSelected : styles.dayText
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={styles.daysRow}>
+                {DAYS.map((day) => {
+                  const selected = selectedDays.includes(day);
+                  return (
+                    <Pressable
+                      key={day}
+                      onPress={() =>
+                        setSelectedDays((prev) =>
+                          prev.includes(day)
+                            ? prev.filter((d) => d !== day)
+                            : [...prev, day]
+                        )
                       }
+                      style={[styles.dayButton, selected && styles.dayButtonSelected]}
                     >
-                      {day}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </>
+                      <Text style={selected ? styles.dayTextSelected : styles.dayText}>{day}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </ScrollView>
+          </View>
         )}
 
         <FlatList
           data={filteredTasks}
           keyExtractor={(item) => item.id}
+          contentContainerStyle={{ paddingBottom: 100 }}
           renderItem={({ item }) => (
             <TaskItem
               task={{
@@ -214,6 +201,15 @@ export default function App() {
           )}
         />
       </Animated.View>
+
+      <View style={[styles.footer, darkMode && styles.darkFooter]}>
+        <Pressable onPress={() => setSelectedDate(new Date())} style={styles.footerButton}>
+          <Text style={styles.footerButtonText}>Today</Text>
+        </Pressable>
+        <Pressable onPress={() => setDarkMode((prev) => !prev)} style={styles.footerButton}>
+          <Text style={styles.footerButtonText}>{darkMode ? 'Light Mode' : 'Dark Mode'}</Text>
+        </Pressable>
+      </View>
     </SafeAreaView>
   );
 }
@@ -222,13 +218,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingTop: 60,
-    paddingHorizontal: 20,
-    backgroundColor: '#fff',
+    paddingHorizontal: 24,
+    backgroundColor: '#f4f7fa',
   },
-  title: {
-    fontSize: 22,
-    fontWeight: '600',
-    marginBottom: 12,
+  darkContainer: {
+    backgroundColor: '#1c1c1e',
   },
   navRow: {
     flexDirection: 'row',
@@ -239,10 +233,29 @@ const styles = StyleSheet.create({
   navText: {
     fontSize: 24,
     paddingHorizontal: 10,
+    color: PRIMARY,
+  },
+  darkText: {
+    color: '#fff',
   },
   dateText: {
     fontSize: 16,
     fontWeight: '500',
+    color: '#333',
+  },
+  addTaskCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  darkCard: {
+    backgroundColor: '#2a2a2d',
   },
   inputRow: {
     flexDirection: 'row',
@@ -256,10 +269,16 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     padding: 10,
     fontSize: 16,
+    backgroundColor: '#fff',
+  },
+  darkInput: {
+    backgroundColor: '#444',
+    color: '#fff',
+    borderColor: '#666',
   },
   button: {
     marginLeft: 10,
-    backgroundColor: '#007AFF',
+    backgroundColor: PRIMARY,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 6,
@@ -270,8 +289,7 @@ const styles = StyleSheet.create({
   },
   daysRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 12,
+    flexWrap: 'nowrap',
   },
   dayButton: {
     paddingHorizontal: 10,
@@ -280,16 +298,41 @@ const styles = StyleSheet.create({
     borderColor: '#ccc',
     borderRadius: 6,
     marginRight: 6,
-    marginBottom: 6,
   },
   dayButtonSelected: {
-    backgroundColor: '#007AFF',
-    borderColor: '#007AFF',
+    backgroundColor: PRIMARY,
+    borderColor: PRIMARY,
   },
   dayText: {
     color: '#333',
   },
   dayTextSelected: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  footer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 16,
+    backgroundColor: '#f4f7fa',
+    borderTopWidth: 1,
+    borderColor: '#ddd',
+  },
+  darkFooter: {
+    backgroundColor: '#1c1c1e',
+    borderColor: '#444',
+  },
+  footerButton: {
+    backgroundColor: PRIMARY,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 6,
+  },
+  footerButtonText: {
     color: '#fff',
     fontWeight: '600',
   },
