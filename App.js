@@ -7,10 +7,12 @@ import {
   StyleSheet,
   TextInput,
   Pressable,
-  PanResponder
+  PanResponder,
+  Animated,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import TaskItem from './components/TaskItem';
+import * as Haptics from 'expo-haptics';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -19,6 +21,7 @@ export default function App() {
   const [newTask, setNewTask] = useState('');
   const [selectedDays, setSelectedDays] = useState([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const slideAnim = useState(new Animated.Value(0))[0];
 
   const today = new Date();
   const todayString = today.toDateString();
@@ -26,15 +29,14 @@ export default function App() {
   const selectedString = selectedDate.toDateString();
   const canToggle = todayString === selectedString;
 
-  // Limit navigation to ±7 days from today
   const startDate = new Date(today);
-  startDate.setDate(today.getDate() - 6); // Only allow back to 6 days ago (excludes today)
+  startDate.setDate(today.getDate() - 6);
 
   const endDate = new Date(today);
-  endDate.setDate(today.getDate() + 5); // Only allow forward to 6 days ahead (excludes today)
+  endDate.setDate(today.getDate() + 5);
 
-  const atStart = selectedDate <= startDate;
-  const atEnd = selectedDate >= endDate;
+  const atStart = selectedDate.toDateString() === startDate.toDateString();
+  const atEnd = selectedDate.toDateString() === endDate.toDateString();
 
   useEffect(() => {
     const load = async () => {
@@ -47,21 +49,6 @@ export default function App() {
   useEffect(() => {
     AsyncStorage.setItem('tasks', JSON.stringify(tasks));
   }, [tasks]);
-
-  const panResponder = PanResponder.create({
-    onMoveShouldSetPanResponder: (_, gestureState) =>
-      Math.abs(gestureState.dx) > 20, // detect horizontal swipes
-
-    onPanResponderRelease: (_, gestureState) => {
-      if (gestureState.dx < -50 && !atEnd) {
-        // swipe left → go forward
-        setSelectedDate((prev) => new Date(prev.getTime() + 86400000));
-      } else if (gestureState.dx > 50 && !atStart) {
-        // swipe right → go back
-        setSelectedDate((prev) => new Date(prev.getTime() - 86400000));
-      }
-    },
-  });
 
   const toggleTask = (id) => {
     if (!canToggle) return;
@@ -99,93 +86,125 @@ export default function App() {
     )
     .sort((a, b) => a.done - b.done);
 
+  const animateSlide = (direction) => {
+    Animated.timing(slideAnim, {
+      toValue: direction * -50,
+      duration: 150,
+      useNativeDriver: true,
+    }).start(() => {
+      setSelectedDate((prev) => new Date(prev.getTime() + direction * 86400000));
+      slideAnim.setValue(direction * 50);
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
+      }).start();
+    });
+  };
+
+  const panResponder = PanResponder.create({
+    onMoveShouldSetPanResponder: (_, gestureState) =>
+      Math.abs(gestureState.dx) > 20,
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dx < -50 && !atEnd) {
+        Haptics.selectionAsync();
+        animateSlide(1); // swipe left
+      } else if (gestureState.dx > 50 && !atStart) {
+        Haptics.selectionAsync();
+        animateSlide(-1); // swipe right
+      }
+    },
+  });
+
   return (
     <SafeAreaView style={styles.container} {...panResponder.panHandlers}>
-      <Text style={styles.title}>Tasks for {selectedString}</Text>
+      <Animated.View style={{ transform: [{ translateX: slideAnim }] }}>
+        <Text style={styles.title}>Tasks for {selectedString}</Text>
 
-      {/* Date navigation */}
-      <View style={styles.navRow}>
-        {!atStart && (
-          <Pressable
-            onPress={() =>
-              setSelectedDate((prev) => new Date(prev.getTime() - 86400000))
-            }
-          >
-            <Text style={styles.navText}>←</Text>
-          </Pressable>
-        )}
-        <Text style={styles.dateText}>{selectedDate.toDateString()}</Text>
-        {!atEnd && (
-          <Pressable
-            onPress={() =>
-              setSelectedDate((prev) => new Date(prev.getTime() + 86400000))
-            }
-          >
-            <Text style={styles.navText}>→</Text>
-          </Pressable>
-        )}
-      </View>
-
-      {/* Only show input form for today */}
-      {canToggle && (
-        <>
-          <View style={styles.inputRow}>
-            <TextInput
-              placeholder="New task"
-              value={newTask}
-              onChangeText={setNewTask}
-              style={styles.input}
-            />
-            <Pressable style={styles.button} onPress={addTask}>
-              <Text style={styles.buttonText}>Add</Text>
+        {/* Date navigation */}
+        <View style={styles.navRow}>
+          {!atStart && (
+            <Pressable
+              onPress={() =>
+                animateSlide(-1)
+              }
+            >
+              <Text style={styles.navText}>←</Text>
             </Pressable>
-          </View>
+          )}
+          <Text style={styles.dateText}>{selectedDate.toDateString()}</Text>
+          {!atEnd && (
+            <Pressable
+              onPress={() =>
+                animateSlide(1)
+              }
+            >
+              <Text style={styles.navText}>→</Text>
+            </Pressable>
+          )}
+        </View>
 
-          <View style={styles.daysRow}>
-            {DAYS.map((day) => {
-              const selected = selectedDays.includes(day);
-              return (
-                <Pressable
-                  key={day}
-                  onPress={() =>
-                    setSelectedDays((prev) =>
-                      prev.includes(day)
-                        ? prev.filter((d) => d !== day)
-                        : [...prev, day]
-                    )
-                  }
-                  style={[
-                    styles.dayButton,
-                    selected && styles.dayButtonSelected,
-                  ]}
-                >
-                  <Text
-                    style={
-                      selected ? styles.dayTextSelected : styles.dayText
+        {/* Input form (today only) */}
+        {canToggle && (
+          <>
+            <View style={styles.inputRow}>
+              <TextInput
+                placeholder="New task"
+                value={newTask}
+                onChangeText={setNewTask}
+                style={styles.input}
+              />
+              <Pressable style={styles.button} onPress={addTask}>
+                <Text style={styles.buttonText}>Add</Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.daysRow}>
+              {DAYS.map((day) => {
+                const selected = selectedDays.includes(day);
+                return (
+                  <Pressable
+                    key={day}
+                    onPress={() =>
+                      setSelectedDays((prev) =>
+                        prev.includes(day)
+                          ? prev.filter((d) => d !== day)
+                          : [...prev, day]
+                      )
                     }
+                    style={[
+                      styles.dayButton,
+                      selected && styles.dayButtonSelected,
+                    ]}
                   >
-                    {day}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </>
-      )}
-
-      {/* Task list */}
-      <FlatList
-        data={filteredTasks}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <TaskItem
-            task={item}
-            onToggle={toggleTask}
-            onDelete={deleteTask}
-            disabled={!canToggle}
-          />
+                    <Text
+                      style={
+                        selected ? styles.dayTextSelected : styles.dayText
+                      }
+                    >
+                      {day}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </>
         )}
-      />
+
+        {/* Task list */}
+        <FlatList
+          data={filteredTasks}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <TaskItem
+              task={item}
+              onToggle={toggleTask}
+              onDelete={deleteTask}
+              disabled={!canToggle}
+            />
+          )}
+        />
+      </Animated.View>
     </SafeAreaView>
   );
 }
