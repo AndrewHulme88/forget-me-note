@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,26 +8,49 @@ import {
   TextInput,
   Pressable,
 } from 'react-native';
-import TaskItem from './components/TaskItem';
-import Checkbox from 'expo-checkbox';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useEffect } from 'react';
-
+import TaskItem from './components/TaskItem';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const today = DAYS[new Date().getDay()];
 
 export default function App() {
   const [tasks, setTasks] = useState([]);
   const [newTask, setNewTask] = useState('');
   const [selectedDays, setSelectedDays] = useState([]);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+
+  const today = new Date();
+  const todayString = today.toDateString();
+  const selectedDayName = DAYS[selectedDate.getDay()];
+  const selectedString = selectedDate.toDateString();
+
+  const canToggle = todayString === selectedString;
+
+  // Load tasks from storage
+  useEffect(() => {
+    const load = async () => {
+      const json = await AsyncStorage.getItem('tasks');
+      if (json) setTasks(JSON.parse(json));
+    };
+    load();
+  }, []);
+
+  // Save tasks to storage
+  useEffect(() => {
+    AsyncStorage.setItem('tasks', JSON.stringify(tasks));
+  }, [tasks]);
 
   const toggleTask = (id) => {
+    if (!canToggle) return;
     setTasks((prev) =>
       prev.map((task) =>
         task.id === id ? { ...task, done: !task.done } : task
       )
     );
+  };
+
+  const deleteTask = (id) => {
+    setTasks((prev) => prev.filter((task) => task.id !== id));
   };
 
   const addTask = () => {
@@ -46,93 +69,96 @@ export default function App() {
     setSelectedDays([]);
   };
 
-  const deleteTask = (id) => {
-    setTasks((prev) => prev.filter((task) => task.id !== id));
-  };
-
-  useEffect(() => {
-    const loadTasks = async () => {
-      try {
-        const json = await AsyncStorage.getItem('tasks');
-        if (json != null) {
-          setTasks(JSON.parse(json));
-        }
-      } catch (e) {
-        console.error('Failed to load tasks:', e);
-      }
-    };
-    loadTasks();
-  }, []);
-
-  useEffect(() => {
-    const saveTasks = async () => {
-      try {
-        await AsyncStorage.setItem('tasks', JSON.stringify(tasks));
-      } catch (e) {
-        console.error('Failed to save tasks:', e);
-      }
-    };
-    saveTasks();
-  }, [tasks]);
+  const filteredTasks = tasks
+    .filter(
+      (task) =>
+        task.days.length === 0 || task.days.includes(selectedDayName)
+    )
+    .sort((a, b) => a.done - b.done);
 
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>Today's Tasks</Text>
+      <Text style={styles.title}>Tasks for {selectedString}</Text>
 
-      {/* Task input */}
-      <View style={styles.inputRow}>
-        <TextInput
-          placeholder="New task"
-          value={newTask}
-          onChangeText={setNewTask}
-          style={styles.input}
-        />
-        <Pressable style={styles.button} onPress={addTask}>
-          <Text style={styles.buttonText}>Add</Text>
+      {/* Date navigation */}
+      <View style={styles.navRow}>
+        <Pressable
+          onPress={() =>
+            setSelectedDate((prev) => new Date(prev.getTime() - 86400000))
+          }
+        >
+          <Text style={styles.navText}>←</Text>
+        </Pressable>
+        <Text style={styles.dateText}>
+          {selectedDate.toDateString()}
+        </Text>
+        <Pressable
+          onPress={() =>
+            setSelectedDate((prev) => new Date(prev.getTime() + 86400000))
+          }
+        >
+          <Text style={styles.navText}>→</Text>
         </Pressable>
       </View>
 
-      {/* Day selector */}
-      <View style={styles.daysRow}>
-        {DAYS.map((day) => {
-          const selected = selectedDays.includes(day);
-          return (
-            <Pressable
-              key={day}
-              onPress={() =>
-                setSelectedDays((prev) =>
-                  prev.includes(day)
-                    ? prev.filter((d) => d !== day)
-                    : [...prev, day]
-                )
-              }
-              style={[
-                styles.dayButton,
-                selected && styles.dayButtonSelected,
-              ]}
-            >
-              <Text
-                style={selected ? styles.dayTextSelected : styles.dayText}
-              >
-                {day}
-              </Text>
+      {/* Only show input form for today */}
+      {canToggle && (
+        <>
+          <View style={styles.inputRow}>
+            <TextInput
+              placeholder="New task"
+              value={newTask}
+              onChangeText={setNewTask}
+              style={styles.input}
+            />
+            <Pressable style={styles.button} onPress={addTask}>
+              <Text style={styles.buttonText}>Add</Text>
             </Pressable>
-          );
-        })}
-      </View>
+          </View>
+
+          <View style={styles.daysRow}>
+            {DAYS.map((day) => {
+              const selected = selectedDays.includes(day);
+              return (
+                <Pressable
+                  key={day}
+                  onPress={() =>
+                    setSelectedDays((prev) =>
+                      prev.includes(day)
+                        ? prev.filter((d) => d !== day)
+                        : [...prev, day]
+                    )
+                  }
+                  style={[
+                    styles.dayButton,
+                    selected && styles.dayButtonSelected,
+                  ]}
+                >
+                  <Text
+                    style={
+                      selected ? styles.dayTextSelected : styles.dayText
+                    }
+                  >
+                    {day}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </>
+      )}
 
       {/* Task list */}
       <FlatList
-        data={tasks
-          .filter((task) => task.days.length === 0 || task.days.includes(today))
-          .sort((a, b) => a.done - b.done)}
+        data={filteredTasks}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-            <TaskItem
-              task={item}
-              onToggle={toggleTask}
-              onDelete={deleteTask}
-            />
+          <TaskItem
+            task={item}
+            onToggle={toggleTask}
+            onDelete={deleteTask}
+            disabled={!canToggle}
+          />
         )}
       />
     </SafeAreaView>
@@ -147,9 +173,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   title: {
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: '600',
-    marginBottom: 20,
+    marginBottom: 12,
+  },
+  navRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  navText: {
+    fontSize: 24,
+    paddingHorizontal: 10,
+  },
+  dateText: {
+    fontSize: 16,
+    fontWeight: '500',
   },
   inputRow: {
     flexDirection: 'row',

@@ -2,10 +2,14 @@ import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import Checkbox from 'expo-checkbox';
 
-export default function TaskItem({ task, onToggle, onDelete }) {
+export default function TaskItem({ task, onToggle, onDelete, disabled }) {
   return (
     <View style={styles.container}>
-      <Checkbox value={task.done} onValueChange={() => onToggle(task.id)} />
+      <Checkbox
+        value={task.done}
+        onValueChange={() => onToggle(task.id)}
+        disabled={disabled}
+      />
       <Text style={[styles.text, task.done && styles.done]}>
         {task.name}
       </Text>
