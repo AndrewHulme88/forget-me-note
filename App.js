@@ -23,10 +23,18 @@ export default function App() {
   const todayString = today.toDateString();
   const selectedDayName = DAYS[selectedDate.getDay()];
   const selectedString = selectedDate.toDateString();
-
   const canToggle = todayString === selectedString;
 
-  // Load tasks from storage
+  // Limit navigation to ±7 days from today
+  const startDate = new Date(today);
+  startDate.setDate(today.getDate() - 6); // Only allow back to 6 days ago (excludes today)
+
+  const endDate = new Date(today);
+  endDate.setDate(today.getDate() + 5); // Only allow forward to 6 days ahead (excludes today)
+
+  const atStart = selectedDate <= startDate;
+  const atEnd = selectedDate >= endDate;
+
   useEffect(() => {
     const load = async () => {
       const json = await AsyncStorage.getItem('tasks');
@@ -35,7 +43,6 @@ export default function App() {
     load();
   }, []);
 
-  // Save tasks to storage
   useEffect(() => {
     AsyncStorage.setItem('tasks', JSON.stringify(tasks));
   }, [tasks]);
@@ -82,23 +89,25 @@ export default function App() {
 
       {/* Date navigation */}
       <View style={styles.navRow}>
-        <Pressable
-          onPress={() =>
-            setSelectedDate((prev) => new Date(prev.getTime() - 86400000))
-          }
-        >
-          <Text style={styles.navText}>←</Text>
-        </Pressable>
-        <Text style={styles.dateText}>
-          {selectedDate.toDateString()}
-        </Text>
-        <Pressable
-          onPress={() =>
-            setSelectedDate((prev) => new Date(prev.getTime() + 86400000))
-          }
-        >
-          <Text style={styles.navText}>→</Text>
-        </Pressable>
+        {!atStart && (
+          <Pressable
+            onPress={() =>
+              setSelectedDate((prev) => new Date(prev.getTime() - 86400000))
+            }
+          >
+            <Text style={styles.navText}>←</Text>
+          </Pressable>
+        )}
+        <Text style={styles.dateText}>{selectedDate.toDateString()}</Text>
+        {!atEnd && (
+          <Pressable
+            onPress={() =>
+              setSelectedDate((prev) => new Date(prev.getTime() + 86400000))
+            }
+          >
+            <Text style={styles.navText}>→</Text>
+          </Pressable>
+        )}
       </View>
 
       {/* Only show input form for today */}
