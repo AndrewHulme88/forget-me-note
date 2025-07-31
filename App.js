@@ -30,6 +30,7 @@ export default function App() {
   const [showAddScreen, setShowAddScreen] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
   const [showIntro, setShowIntro] = useState(false);
+  const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
 
   const slideAnim = useState(new Animated.Value(0))[0];
 
@@ -210,6 +211,16 @@ export default function App() {
     },
   });
 
+  useEffect(() => {
+    if (showUpgradePrompt) {
+      Alert.alert(
+        'Upgrade required',
+        'Alarm reminders are only available in the premium version.',
+        [{ text: 'OK', onPress: () => setShowUpgradePrompt(false) }]
+      );
+    }
+  }, [showUpgradePrompt]);
+
   if (showAddScreen) {
     return (
       <AddTask
@@ -261,13 +272,18 @@ export default function App() {
               disabled={!canToggle}
               darkMode={darkMode}
               onSetReminder={(id, reminder) => {
-                if (!isPremium) return;
                 if (!reminder) {
                   cancelReminder(id);
                 } else {
-                  scheduleReminder(id, reminder.time, reminder.type);
+                  if (!isPremium && reminder.type === 'alarm') {
+                    setShowUpgradePrompt(true);
+                  } else {
+                    scheduleReminder(id, reminder.time, reminder.type);
+                  }
                 }
               }}
+              isPremium={isPremium}
+              showUpgradePrompt={() => setShowUpgradePrompt(true)}
             />
           )}
         />

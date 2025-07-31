@@ -3,8 +3,25 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import ReminderModal from './ReminderModal';
 
-const TaskItem = ({ task, onToggle, onDelete, disabled, darkMode, onSetReminder }) => {
+const TaskItem = ({
+  task,
+  onToggle,
+  onDelete,
+  disabled,
+  darkMode,
+  onSetReminder,
+  isPremium,
+  showUpgradePrompt,
+}) => {
   const [showReminder, setShowReminder] = useState(false);
+
+  const handleClockPress = () => {
+    if (!isPremium) {
+      showUpgradePrompt();
+    } else {
+      setShowReminder(true);
+    }
+  };
 
   return (
     <View style={[styles.item, darkMode && styles.darkItem]}>
@@ -14,11 +31,13 @@ const TaskItem = ({ task, onToggle, onDelete, disabled, darkMode, onSetReminder 
       >
         {task.done && <Feather name="check" size={16} color="#fff" />}
       </Pressable>
+
       <Text style={[styles.text, task.done && styles.textDone, darkMode && styles.darkText]}>
         {task.name}
       </Text>
+
       <View style={styles.actions}>
-        <Pressable onPress={() => setShowReminder(true)} style={styles.iconButton}>
+        <Pressable onPress={handleClockPress} style={styles.iconButton}>
           <Feather name="clock" size={18} color={darkMode ? '#fff' : '#333'} />
         </Pressable>
         <Pressable onPress={() => onDelete(task.id)} style={styles.iconButton}>
@@ -26,19 +45,21 @@ const TaskItem = ({ task, onToggle, onDelete, disabled, darkMode, onSetReminder 
         </Pressable>
       </View>
 
-      <ReminderModal
-        visible={showReminder}
-        onClose={() => setShowReminder(false)}
-        onSetReminder={(time, type) => {
-          onSetReminder(task.id, time, type);
-          setShowReminder(false);
-        }}
-        onRemoveReminder={() => {
-          onSetReminder(task.id, null, null);
-          setShowReminder(false);
-        }}
-        currentReminder={task.reminder}
-      />
+      {isPremium && (
+        <ReminderModal
+          visible={showReminder}
+          onClose={() => setShowReminder(false)}
+          onSetReminder={(time, type) => {
+            onSetReminder(task.id, time, type);
+            setShowReminder(false);
+          }}
+          onRemoveReminder={() => {
+            onSetReminder(task.id, null, null);
+            setShowReminder(false);
+          }}
+          currentReminder={task.reminder}
+        />
+      )}
     </View>
   );
 };
