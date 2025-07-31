@@ -6,9 +6,11 @@ import {
   StyleSheet,
   Animated,
   PanResponder,
+  Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
+import * as Notifications from 'expo-notifications';
 import Header from './components/Header';
 import TaskItem from './components/TaskItem';
 import Footer from './components/Footer';
@@ -50,11 +52,66 @@ export default function App() {
     AsyncStorage.setItem('tasks', JSON.stringify(tasks));
   }, [tasks]);
 
+  useEffect(() => {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+      }),
+    });
+
+    if (Platform.OS === 'android') {
+      Notifications.setNotificationChannelAsync('alarm', {
+        name: 'Alarm Channel',
+        importance: Notifications.AndroidImportance.HIGH,
+        sound: 'default',
+      });
+
+      Notifications.setNotificationChannelAsync('silent', {
+        name: 'Silent Channel',
+        importance: Notifications.AndroidImportance.DEFAULT,
+        sound: null,
+      });
+    }
+  }, []);
+
+  const scheduleReminder = async (taskId, time, type) => {
+    const triggerDate = new Date(time);
+    const id = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: 'Task Reminder',
+        body: `Don't forget: ${tasks.find(t => t.id === taskId)?.name || 'a task'}`,
+        sound: type === 'alarm' ? 'default' : null,
+      },
+      trigger: triggerDate,
+    });
+
+    setTasks(prev =>
+      prev.map(task =>
+        task.id === taskId ? { ...task, reminder: { time, type, notifId: id } } : task
+      )
+    );
+  };
+
+  const cancelReminder = async (taskId) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (task?.reminder?.notifId) {
+      await Notifications.cancelScheduledNotificationAsync(task.reminder.notifId);
+    }
+
+    setTasks(prev =>
+      prev.map(task =>
+        task.id === taskId ? { ...task, reminder: null } : task
+      )
+    );
+  };
+
   const toggleTask = (id) => {
     if (!canToggle) return;
     const dateKey = selectedString;
-    setTasks((prev) =>
-      prev.map((task) =>
+    setTasks(prev =>
+      prev.map(task =>
         task.id === id
           ? {
               ...task,
@@ -68,14 +125,15 @@ export default function App() {
     );
   };
 
-  const deleteTask = (id) => {
-    setTasks((prev) => prev.filter((task) => task.id !== id));
+  const deleteTask = async (id) => {
+    await cancelReminder(id);
+    setTasks(prev => prev.filter(task => task.id !== id));
   };
 
   const addTask = (taskName, selectedDays) => {
     const trimmed = taskName.trim();
     if (!trimmed) return;
-    setTasks((prev) => [
+    setTasks(prev => [
       ...prev,
       {
         id: Date.now().toString(),
@@ -87,7 +145,7 @@ export default function App() {
   };
 
   const filteredTasks = tasks
-    .filter((task) => task.days.length === 0 || task.days.includes(selectedDayName))
+    .filter(task => task.days.length === 0 || task.days.includes(selectedDayName))
     .sort((a, b) => {
       const aDone = a.done?.[selectedString] || false;
       const bDone = b.done?.[selectedString] || false;
@@ -100,7 +158,7 @@ export default function App() {
       duration: 150,
       useNativeDriver: true,
     }).start(() => {
-      setSelectedDate((prev) => new Date(prev.getTime() + direction * 86400000));
+      setSelectedDate(prev => new Date(prev.getTime() + direction * 86400000));
       slideAnim.setValue(direction * 50);
       Animated.timing(slideAnim, {
         toValue: 0,
@@ -161,12 +219,12 @@ export default function App() {
               onDelete={deleteTask}
               disabled={!canToggle}
               darkMode={darkMode}
-              onSetReminder={(id, time, type) => {
-                setTasks((prev) =>
-                  prev.map((task) =>
-                    task.id === id ? { ...task, reminder: time ? { time, type } : null } : task
-                  )
-                );
+              onSetReminder={(id, reminder) => {
+                if (!reminder) {
+                  cancelReminder(id);
+                } else {
+                  scheduleReminder(id, reminder.time, reminder.type);
+                }
               }}
             />
           )}
