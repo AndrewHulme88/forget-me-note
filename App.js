@@ -7,6 +7,7 @@ import {
   Animated,
   PanResponder,
   Platform,
+  Pressable,
   Alert,
   Text,
   Switch,
@@ -295,6 +296,17 @@ export default function App() {
         <Switch value={isPremium} onValueChange={togglePremium} />
       </View>
 
+      {!isPremium && (
+        <View style={styles.upgradeContainer}>
+          <Pressable
+            style={styles.upgradeButton}
+            onPress={() => Alert.alert('Upgrade', 'Purchase flow coming soon.')}
+          >
+            <Text style={styles.upgradeText}>Upgrade to Premium</Text>
+          </Pressable>
+        </View>
+      )}
+
       <Footer
         darkMode={darkMode}
         setDarkMode={isPremium ? setDarkMode : () => {}}
@@ -322,5 +334,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 6,
+  },
+  upgradeContainer: {
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  upgradeButton: {
+    backgroundColor: '#4A4A58',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  upgradeText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 16,
   },
 });
