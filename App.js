@@ -285,6 +285,7 @@ export default function App() {
         resetToToday={() => setSelectedDate(new Date())}
         onAddPress={() => setShowAddScreen(true)}
         isToday={todayString === selectedString}
+        isPremium={isPremium}
       />
     </SafeAreaView>
   );

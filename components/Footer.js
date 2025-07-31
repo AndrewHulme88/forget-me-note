@@ -1,60 +1,63 @@
 import React from 'react';
-import { View, Pressable, Text, StyleSheet } from 'react-native';
+import { View, Pressable, StyleSheet, Text } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
-const Footer = ({ darkMode, setDarkMode, resetToToday, onAddPress, isToday }) => {
+const Footer = ({ darkMode, setDarkMode, resetToToday, onAddPress, isToday, isPremium }) => {
   return (
-    <View style={styles.footer}>
-      <Pressable
-        onPress={resetToToday}
-        disabled={isToday}
-        style={[styles.button, isToday && styles.disabled]}
-      >
-        <Feather name="calendar" size={18} color={isToday ? '#999' : '#fff'} />
-        <Text style={[styles.buttonText, isToday && { color: '#999' }]}>Today</Text>
+    <View style={styles.container}>
+      <Pressable onPress={isToday ? null : resetToToday} disabled={isToday}>
+        <Text style={[styles.buttonText, isToday && styles.disabled]}>Today</Text>
       </Pressable>
-      <Pressable onPress={onAddPress} style={styles.addButton}>
-        <Feather name="plus" size={18} color="#fff" />
+
+      <Pressable onPress={onAddPress}>
+        <Feather name="plus-circle" size={28} color="#4A4A58" />
       </Pressable>
-      <Pressable onPress={() => setDarkMode(prev => !prev)} style={styles.button}>
-        <Feather name="moon" size={18} color="#fff" />
-        <Text style={styles.buttonText}>Dark</Text>
-      </Pressable>
+
+      <View style={styles.darkModeWrapper}>
+        <Pressable
+          onPress={isPremium ? () => setDarkMode(prev => !prev) : null}
+          disabled={!isPremium}
+          style={styles.darkModeButton}
+        >
+          <Feather
+            name={darkMode ? 'sun' : 'moon'}
+            size={24}
+            color={isPremium ? '#4A4A58' : '#aaa'}
+          />
+        </Pressable>
+        {!isPremium && <Text style={styles.premiumLabel}>Premium</Text>}
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  footer: {
+  container: {
     position: 'absolute',
     bottom: 24,
-    left: 24,
-    right: 24,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 12,
-  },
-  button: {
-    flexDirection: 'row',
-    gap: 6,
-    backgroundColor: '#4A4A58',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    justifyContent: 'space-around',
     alignItems: 'center',
   },
   buttonText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  addButton: {
-    backgroundColor: '#4A4A58',
-    padding: 12,
-    borderRadius: 50,
+    fontSize: 16,
+    color: '#4A4A58',
   },
   disabled: {
-    backgroundColor: '#ccc',
+    color: '#ccc',
+  },
+  darkModeWrapper: {
+    alignItems: 'center',
+  },
+  darkModeButton: {
+    padding: 4,
+  },
+  premiumLabel: {
+    fontSize: 10,
+    color: '#999',
+    marginTop: 2,
   },
 });
 
