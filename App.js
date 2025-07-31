@@ -7,6 +7,9 @@ import {
   Animated,
   PanResponder,
   Platform,
+  Alert,
+  Text,
+  Switch,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
@@ -25,6 +28,9 @@ export default function App() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [darkMode, setDarkMode] = useState(false);
   const [showAddScreen, setShowAddScreen] = useState(false);
+  const [isPremium, setIsPremium] = useState(false);
+  const [showIntro, setShowIntro] = useState(false);
+
   const slideAnim = useState(new Animated.Value(0))[0];
 
   const today = new Date();
@@ -37,11 +43,8 @@ export default function App() {
   startDate.setDate(today.getDate() - 6);
   const endDate = new Date(today);
   endDate.setDate(today.getDate() + 5);
-
   const atStart = selectedString === startDate.toDateString();
   const atEnd = selectedString === endDate.toDateString();
-
-  const [showIntro, setShowIntro] = useState(false);
 
   useEffect(() => {
     const checkIntro = async () => {
@@ -54,7 +57,9 @@ export default function App() {
   useEffect(() => {
     const load = async () => {
       const json = await AsyncStorage.getItem('tasks');
+      const premiumStatus = await AsyncStorage.getItem('isPremium');
       if (json) setTasks(JSON.parse(json));
+      if (premiumStatus === 'true') setIsPremium(true);
     };
     load();
   }, []);
@@ -87,7 +92,15 @@ export default function App() {
     }
   }, []);
 
+  const togglePremium = async () => {
+    const newStatus = !isPremium;
+    setIsPremium(newStatus);
+    await AsyncStorage.setItem('isPremium', newStatus ? 'true' : 'false');
+  };
+
   const scheduleReminder = async (taskId, time, type) => {
+    if (!isPremium) return;
+
     const triggerDate = new Date(time);
     const id = await Notifications.scheduleNotificationAsync({
       content: {
@@ -142,6 +155,11 @@ export default function App() {
   };
 
   const addTask = (taskName, selectedDays) => {
+    if (!isPremium && tasks.length >= 10) {
+      Alert.alert('Upgrade required', 'Free version is limited to 10 tasks.');
+      return;
+    }
+
     const trimmed = taskName.trim();
     if (!trimmed) return;
     setTasks(prev => [
@@ -226,7 +244,7 @@ export default function App() {
         <Header
           selectedDate={selectedDate}
           darkMode={darkMode}
-          onSlide={animateSlide}
+          animateSlide={animateSlide}
           atStart={atStart}
           atEnd={atEnd}
         />
@@ -243,6 +261,7 @@ export default function App() {
               disabled={!canToggle}
               darkMode={darkMode}
               onSetReminder={(id, reminder) => {
+                if (!isPremium) return;
                 if (!reminder) {
                   cancelReminder(id);
                 } else {
@@ -254,9 +273,15 @@ export default function App() {
         />
       </Animated.View>
 
+      {/* Premium toggle for testing */}
+      <View style={styles.toggleRow}>
+        <Text style={{ color: darkMode ? '#fff' : '#333' }}>Premium:</Text>
+        <Switch value={isPremium} onValueChange={togglePremium} />
+      </View>
+
       <Footer
         darkMode={darkMode}
-        setDarkMode={setDarkMode}
+        setDarkMode={isPremium ? setDarkMode : () => {}}
         resetToToday={() => setSelectedDate(new Date())}
         onAddPress={() => setShowAddScreen(true)}
         isToday={todayString === selectedString}
@@ -274,5 +299,11 @@ const styles = StyleSheet.create({
   },
   darkContainer: {
     backgroundColor: '#1c1c1e',
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 6,
   },
 });
