@@ -27,7 +27,7 @@ const Footer = ({ darkMode, setDarkMode, resetToToday, onAddPress, isToday }) =>
 const styles = StyleSheet.create({
   footer: {
     position: 'absolute',
-    bottom: 16,
+    bottom: 24,
     left: 24,
     right: 24,
     flexDirection: 'row',
