@@ -226,7 +226,7 @@ export default function App() {
         <Header
           selectedDate={selectedDate}
           darkMode={darkMode}
-          animateSlide={animateSlide}
+          onSlide={animateSlide}
           atStart={atStart}
           atEnd={atEnd}
         />

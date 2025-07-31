@@ -25,7 +25,7 @@ const Header = ({ selectedDate, atStart, atEnd, darkMode, onSlide }) => {
         <Text style={[styles.dateText, darkMode && styles.darkText]}>
           {new Date(selectedDate).toDateString()}
         </Text>
-        <View style={{ width: 32, alignItems: 'flex-end' }}>
+        <View style={{ width: -32 }}>
           {!atEnd && (
             <Pressable onPress={() => onSlide(1)}>
               <Text style={[styles.navText, darkMode && styles.darkText]}>→</Text>
