@@ -1,23 +1,24 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Pressable, Text, StyleSheet } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 
-const PRIMARY = '#4A4A58';
-
-const Footer = ({ darkMode, setDarkMode, resetToToday, onAddPress }) => {
+const Footer = ({ darkMode, setDarkMode, resetToToday, onAddPress, isToday }) => {
   return (
-    <View style={[styles.footer, darkMode && styles.darkFooter]}>
-      <Pressable onPress={resetToToday} style={styles.footerButton}>
-        <Text style={styles.footerButtonText}>Today</Text>
+    <View style={styles.footer}>
+      <Pressable
+        onPress={resetToToday}
+        disabled={isToday}
+        style={[styles.button, isToday && styles.disabled]}
+      >
+        <Feather name="calendar" size={18} color={isToday ? '#999' : '#fff'} />
+        <Text style={[styles.buttonText, isToday && { color: '#999' }]}>Today</Text>
       </Pressable>
-
-      <Pressable onPress={onAddPress} style={styles.footerButton}>
-        <Text style={styles.footerButtonText}>＋ Add</Text>
+      <Pressable onPress={onAddPress} style={styles.addButton}>
+        <Feather name="plus" size={18} color="#fff" />
       </Pressable>
-
-      <Pressable onPress={() => setDarkMode((prev) => !prev)} style={styles.footerButton}>
-        <Text style={styles.footerButtonText}>
-          {darkMode ? 'Light Mode' : 'Dark Mode'}
-        </Text>
+      <Pressable onPress={() => setDarkMode(prev => !prev)} style={styles.button}>
+        <Feather name="moon" size={18} color="#fff" />
+        <Text style={styles.buttonText}>Dark</Text>
       </Pressable>
     </View>
   );
@@ -26,30 +27,34 @@ const Footer = ({ darkMode, setDarkMode, resetToToday, onAddPress }) => {
 const styles = StyleSheet.create({
   footer: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+    bottom: 16,
+    left: 24,
+    right: 24,
     flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 16,
-    padding: 16,
-    backgroundColor: '#f4f7fa',
-    borderTopWidth: 1,
-    borderColor: '#ddd',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
   },
-  darkFooter: {
-    backgroundColor: '#1c1c1e',
-    borderColor: '#444',
-  },
-  footerButton: {
-    backgroundColor: PRIMARY,
-    paddingHorizontal: 16,
+  button: {
+    flexDirection: 'row',
+    gap: 6,
+    backgroundColor: '#4A4A58',
     paddingVertical: 10,
-    borderRadius: 6,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
   },
-  footerButtonText: {
+  buttonText: {
     color: '#fff',
     fontWeight: '600',
+  },
+  addButton: {
+    backgroundColor: '#4A4A58',
+    padding: 12,
+    borderRadius: 50,
+  },
+  disabled: {
+    backgroundColor: '#ccc',
   },
 });
 

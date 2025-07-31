@@ -259,6 +259,7 @@ export default function App() {
         setDarkMode={setDarkMode}
         resetToToday={() => setSelectedDate(new Date())}
         onAddPress={() => setShowAddScreen(true)}
+        isToday={todayString === selectedString}
       />
     </SafeAreaView>
   );
