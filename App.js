@@ -15,6 +15,7 @@ import Header from './components/Header';
 import TaskItem from './components/TaskItem';
 import Footer from './components/Footer';
 import AddTask from './components/AddTask';
+import IntroScreen from './components/IntroScreen';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const PRIMARY = '#4A4A58';
@@ -39,6 +40,16 @@ export default function App() {
 
   const atStart = selectedString === startDate.toDateString();
   const atEnd = selectedString === endDate.toDateString();
+
+  const [showIntro, setShowIntro] = useState(false);
+
+  useEffect(() => {
+    const checkIntro = async () => {
+      const seen = await AsyncStorage.getItem('seenIntro');
+      if (!seen) setShowIntro(true);
+    };
+    checkIntro();
+  }, []);
 
   useEffect(() => {
     const load = async () => {
@@ -188,6 +199,18 @@ export default function App() {
         onAdd={(taskName, days) => {
           addTask(taskName, days);
           setShowAddScreen(false);
+        }}
+        darkMode={darkMode}
+      />
+    );
+  }
+
+  if (showIntro) {
+    return (
+      <IntroScreen
+        onContinue={async () => {
+          await AsyncStorage.setItem('seenIntro', 'true');
+          setShowIntro(false);
         }}
         darkMode={darkMode}
       />
