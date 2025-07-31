@@ -1,12 +1,32 @@
-import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
+import * as Notifications from 'expo-notifications';
 
 const IntroScreen = ({ onContinue, darkMode }) => {
+  useEffect(() => {
+    const requestPermissions = async () => {
+      const { status } = await Notifications.getPermissionsAsync();
+      if (status !== 'granted') {
+        await Notifications.requestPermissionsAsync({
+          ios: {
+            allowAlert: true,
+            allowSound: true,
+            allowBadge: false,
+          },
+        });
+      }
+    };
+
+    requestPermissions();
+  }, []);
+
   return (
     <View style={[styles.container, darkMode && styles.darkContainer]}>
       <Text style={[styles.title, darkMode && styles.darkText]}>Welcome to Forget Me Note</Text>
-      <Text style={[styles.text, darkMode && styles.darkText]}>
-        Keep track of your daily tasks, set reminders, and never forget again.
+      <Text style={[styles.description, darkMode && styles.darkText]}>
+        - Swipe through days{'\n'}
+        - Track and check off tasks{'\n'}
+        - Set reminders or alarms
       </Text>
       <Pressable onPress={onContinue} style={styles.button}>
         <Text style={styles.buttonText}>Get Started</Text>
@@ -18,38 +38,39 @@ const IntroScreen = ({ onContinue, darkMode }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
+    paddingTop: 100,
+    paddingHorizontal: 24,
     backgroundColor: '#f4f7fa',
+    alignItems: 'center',
   },
   darkContainer: {
     backgroundColor: '#1c1c1e',
   },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
-    marginBottom: 20,
+    fontSize: 24,
+    fontWeight: '600',
+    marginBottom: 24,
     color: '#333',
   },
-  text: {
+  darkText: {
+    color: '#fff',
+  },
+  description: {
     fontSize: 16,
+    lineHeight: 24,
     textAlign: 'center',
     marginBottom: 40,
     color: '#555',
   },
-  darkText: {
-    color: '#eee',
-  },
   button: {
     backgroundColor: '#4A4A58',
-    paddingHorizontal: 24,
     paddingVertical: 12,
+    paddingHorizontal: 32,
     borderRadius: 6,
   },
   buttonText: {
     color: '#fff',
-    fontWeight: '600',
+    fontWeight: '500',
     fontSize: 16,
   },
 });
