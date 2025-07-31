@@ -161,6 +161,13 @@ export default function App() {
               onDelete={deleteTask}
               disabled={!canToggle}
               darkMode={darkMode}
+              onSetReminder={(id, time, type) => {
+                setTasks((prev) =>
+                  prev.map((task) =>
+                    task.id === id ? { ...task, reminder: time ? { time, type } : null } : task
+                  )
+                );
+              }}
             />
           )}
         />

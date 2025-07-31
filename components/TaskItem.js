@@ -1,58 +1,72 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { FontAwesome } from '@expo/vector-icons';
+import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
+import ReminderModal from './ReminderModal';
 
-const PRIMARY = '#4A4A58';
+const TaskItem = ({ task, onToggle, onDelete, disabled, darkMode, onSetReminder }) => {
+  const [showReminder, setShowReminder] = useState(false);
 
-export default function TaskItem({ task, onToggle, onDelete, disabled, darkMode }) {
   return (
-    <View style={[styles.card, darkMode && styles.darkCard]}>
+    <View style={[styles.item, darkMode && styles.darkItem]}>
       <Pressable
         onPress={() => !disabled && onToggle(task.id)}
         style={[styles.checkbox, task.done && styles.checked]}
       >
-        {task.done && <FontAwesome name="check" size={16} color="#fff" />}
+        {task.done && <Feather name="check" size={16} color="#fff" />}
       </Pressable>
-      <Text
-        style={[
-          styles.text,
-          task.done && styles.doneText,
-          darkMode && styles.darkText,
-        ]}
-      >
+      <Text style={[styles.text, task.done && styles.textDone, darkMode && styles.darkText]}>
         {task.name}
       </Text>
-      <Pressable onPress={() => onDelete(task.id)}>
-        <FontAwesome name="trash" size={18} color="#cc0000" />
-      </Pressable>
+      <View style={styles.actions}>
+        <Pressable onPress={() => setShowReminder(true)} style={styles.iconButton}>
+          <Feather name="clock" size={18} color={darkMode ? '#fff' : '#333'} />
+        </Pressable>
+        <Pressable onPress={() => onDelete(task.id)} style={styles.iconButton}>
+          <Feather name="trash-2" size={18} color="#ff5c5c" />
+        </Pressable>
+      </View>
+
+      <ReminderModal
+        visible={showReminder}
+        onClose={() => setShowReminder(false)}
+        onSetReminder={(time, type) => {
+          onSetReminder(task.id, time, type);
+          setShowReminder(false);
+        }}
+        onRemoveReminder={() => {
+          onSetReminder(task.id, null, null);
+          setShowReminder(false);
+        }}
+        currentReminder={task.reminder}
+      />
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  card: {
+  item: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
-    padding: 12,
-    borderRadius: 8,
     alignItems: 'center',
-    marginBottom: 10,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderColor: '#ddd',
   },
-  darkCard: {
-    backgroundColor: '#2a2a2d',
+  darkItem: {
+    borderColor: '#444',
   },
   checkbox: {
-    width: 22,
-    height: 22,
-    borderWidth: 2,
-    borderColor: PRIMARY,
-    marginRight: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: 24,
+    height: 24,
     borderRadius: 4,
+    borderWidth: 2,
+    borderColor: '#888',
+    marginRight: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   checked: {
-    backgroundColor: PRIMARY,
+    backgroundColor: '#4A4A58',
+    borderColor: '#4A4A58',
   },
   text: {
     flex: 1,
@@ -60,10 +74,19 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   darkText: {
-    color: '#fff',
+    color: '#eee',
   },
-  doneText: {
+  textDone: {
     textDecorationLine: 'line-through',
-    opacity: 0.5,
+    color: '#888',
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  iconButton: {
+    padding: 4,
   },
 });
+
+export default TaskItem;
