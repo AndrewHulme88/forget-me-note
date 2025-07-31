@@ -10,19 +10,18 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import Header from './components/Header';
-import TaskInput from './components/TaskInput';
 import TaskItem from './components/TaskItem';
 import Footer from './components/Footer';
+import AddTask from './components/AddTask';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const PRIMARY = '#4A4A58';
 
 export default function App() {
   const [tasks, setTasks] = useState([]);
-  const [newTask, setNewTask] = useState('');
-  const [selectedDays, setSelectedDays] = useState([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [darkMode, setDarkMode] = useState(false);
+  const [showAddScreen, setShowAddScreen] = useState(false);
   const slideAnim = useState(new Animated.Value(0))[0];
 
   const today = new Date();
@@ -73,8 +72,8 @@ export default function App() {
     setTasks((prev) => prev.filter((task) => task.id !== id));
   };
 
-  const addTask = () => {
-    const trimmed = newTask.trim();
+  const addTask = (taskName, selectedDays) => {
+    const trimmed = taskName.trim();
     if (!trimmed) return;
     setTasks((prev) => [
       ...prev,
@@ -85,8 +84,6 @@ export default function App() {
         days: [...selectedDays],
       },
     ]);
-    setNewTask('');
-    setSelectedDays([]);
   };
 
   const filteredTasks = tasks
@@ -126,6 +123,19 @@ export default function App() {
     },
   });
 
+  if (showAddScreen) {
+    return (
+      <AddTask
+        onCancel={() => setShowAddScreen(false)}
+        onAdd={(taskName, days) => {
+          addTask(taskName, days);
+          setShowAddScreen(false);
+        }}
+        darkMode={darkMode}
+      />
+    );
+  }
+
   return (
     <SafeAreaView
       style={[styles.container, darkMode && styles.darkContainer]}
@@ -139,17 +149,6 @@ export default function App() {
           atStart={atStart}
           atEnd={atEnd}
         />
-
-        {canToggle && (
-          <TaskInput
-            newTask={newTask}
-            setNewTask={setNewTask}
-            selectedDays={selectedDays}
-            setSelectedDays={setSelectedDays}
-            addTask={addTask}
-            darkMode={darkMode}
-          />
-        )}
 
         <FlatList
           data={filteredTasks}
@@ -171,6 +170,7 @@ export default function App() {
         darkMode={darkMode}
         setDarkMode={setDarkMode}
         resetToToday={() => setSelectedDate(new Date())}
+        onAddPress={() => setShowAddScreen(true)}
       />
     </SafeAreaView>
   );

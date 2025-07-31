@@ -3,12 +3,17 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 
 const PRIMARY = '#4A4A58';
 
-const Footer = ({ darkMode, setDarkMode, resetToToday }) => {
+const Footer = ({ darkMode, setDarkMode, resetToToday, onAddPress }) => {
   return (
     <View style={[styles.footer, darkMode && styles.darkFooter]}>
       <Pressable onPress={resetToToday} style={styles.footerButton}>
         <Text style={styles.footerButtonText}>Today</Text>
       </Pressable>
+
+      <Pressable onPress={onAddPress} style={styles.footerButton}>
+        <Text style={styles.footerButtonText}>＋ Add</Text>
+      </Pressable>
+
       <Pressable onPress={() => setDarkMode((prev) => !prev)} style={styles.footerButton}>
         <Text style={styles.footerButtonText}>
           {darkMode ? 'Light Mode' : 'Dark Mode'}
