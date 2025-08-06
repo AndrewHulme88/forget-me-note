@@ -17,7 +17,7 @@ const TaskItem = ({
 
   const handleClockPress = () => {
     if (!isPremium) {
-      showUpgradePrompt();
+      showUpgradePrompt?.();
     } else {
       setShowReminder(true);
     }

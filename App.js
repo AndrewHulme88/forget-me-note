@@ -20,6 +20,7 @@ import TaskItem from './components/TaskItem';
 import Footer from './components/Footer';
 import AddTask from './components/AddTask';
 import IntroScreen from './components/IntroScreen';
+import * as InAppPurchases from 'expo-in-app-purchases';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const PRIMARY = '#4A4A58';
@@ -79,6 +80,34 @@ export default function App() {
       }),
     });
 
+    useEffect(() => {
+      const connectAndListen = async () => {
+        await InAppPurchases.connectAsync();
+
+        InAppPurchases.setPurchaseListener(({ responseCode, results, errorCode }) => {
+          if (responseCode === InAppPurchases.IAPResponseCode.OK) {
+            results.forEach(async purchase => {
+              if (!purchase.acknowledged) {
+                if (purchase.productId === 'premium_upgrade') {
+                  setIsPremium(true);
+                  await AsyncStorage.setItem('isPremium', 'true');
+                }
+                await InAppPurchases.finishTransactionAsync(purchase, false);
+              }
+            });
+          } else {
+            console.warn('Purchase failed:', errorCode);
+          }
+        });
+      };
+
+      connectAndListen();
+
+      return () => {
+        InAppPurchases.disconnectAsync();
+      };
+    }, []);
+
     if (Platform.OS === 'android') {
       Notifications.setNotificationChannelAsync('alarm', {
         name: 'Alarm Channel',
@@ -94,10 +123,14 @@ export default function App() {
     }
   }, []);
 
-  const togglePremium = async () => {
-    const newStatus = !isPremium;
-    setIsPremium(newStatus);
-    await AsyncStorage.setItem('isPremium', newStatus ? 'true' : 'false');
+  const handleUpgradePurchase = async () => {
+    try {
+      const items = ['premium_upgrade']; // Match your product ID
+      await InAppPurchases.getProductsAsync(items);
+      await InAppPurchases.purchaseItemAsync('premium_upgrade');
+    } catch (e) {
+      console.warn('Purchase error:', e);
+    }
   };
 
   const scheduleReminder = async (taskId, time, type) => {
@@ -290,19 +323,11 @@ export default function App() {
         />
       </Animated.View>
 
-      {/* Premium toggle for testing */}
-      <View style={styles.toggleRow}>
-        <Text style={{ color: darkMode ? '#fff' : '#333' }}>Premium:</Text>
-        <Switch value={isPremium} onValueChange={togglePremium} />
-      </View>
-
       {!isPremium && (
-        <View style={styles.upgradeContainer}>
-          <Pressable
-            style={styles.upgradeButton}
-            onPress={() => Alert.alert('Upgrade', 'Purchase flow coming soon.')}
-          >
-            <Text style={styles.upgradeText}>Upgrade to Premium</Text>
+        <View style={styles.upgradeRow}>
+          <Text style={{ color: darkMode ? '#fff' : '#333' }}>Unlock premium features:</Text>
+          <Pressable onPress={handleUpgradePurchase} style={styles.upgradeButton}>
+            <Text style={{ color: '#fff' }}>Upgrade</Text>
           </Pressable>
         </View>
       )}
@@ -349,5 +374,14 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
     fontSize: 16,
+  },
+  upgradeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 10,
+    backgroundColor: '#eee',
+    borderRadius: 8,
+    margin: 10,
   },
 });
