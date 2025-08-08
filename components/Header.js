@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 
-const Header = ({ selectedDate, atStart, atEnd, darkMode, onSlide }) => {
+const Header = ({ selectedDate, atStart, atEnd, darkMode, animateSlide }) => {
   const today = new Date();
   const diffDays = Math.floor(
     (selectedDate.setHours(0, 0, 0, 0) - today.setHours(0, 0, 0, 0)) / 86400000
@@ -17,7 +17,7 @@ const Header = ({ selectedDate, atStart, atEnd, darkMode, onSlide }) => {
       <View style={styles.navRow}>
         <View style={{ width: 32 }}>
           {!atStart && (
-            <Pressable onPress={() => onSlide(-1)}>
+            <Pressable onPress={() => animateSlide(-1)}>
               <Text style={[styles.navText, darkMode && styles.darkText]}>←</Text>
             </Pressable>
           )}
@@ -27,7 +27,7 @@ const Header = ({ selectedDate, atStart, atEnd, darkMode, onSlide }) => {
         </Text>
         <View style={{ width: -32 }}>
           {!atEnd && (
-            <Pressable onPress={() => onSlide(1)}>
+            <Pressable onPress={() => animateSlide(1)}>
               <Text style={[styles.navText, darkMode && styles.darkText]}>→</Text>
             </Pressable>
           )}

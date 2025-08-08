@@ -10,7 +10,6 @@ import {
   Pressable,
   Alert,
   Text,
-  Switch,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
@@ -23,7 +22,6 @@ import IntroScreen from './components/IntroScreen';
 import * as InAppPurchases from 'expo-in-app-purchases';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const PRIMARY = '#4A4A58';
 
 export default function App() {
   const [tasks, setTasks] = useState([]);
@@ -71,6 +69,7 @@ export default function App() {
     AsyncStorage.setItem('tasks', JSON.stringify(tasks));
   }, [tasks]);
 
+  // Notifications setup
   useEffect(() => {
     Notifications.setNotificationHandler({
       handleNotification: async () => ({
@@ -79,34 +78,6 @@ export default function App() {
         shouldSetBadge: false,
       }),
     });
-
-    useEffect(() => {
-      const connectAndListen = async () => {
-        await InAppPurchases.connectAsync();
-
-        InAppPurchases.setPurchaseListener(({ responseCode, results, errorCode }) => {
-          if (responseCode === InAppPurchases.IAPResponseCode.OK) {
-            results.forEach(async purchase => {
-              if (!purchase.acknowledged) {
-                if (purchase.productId === 'premium_upgrade') {
-                  setIsPremium(true);
-                  await AsyncStorage.setItem('isPremium', 'true');
-                }
-                await InAppPurchases.finishTransactionAsync(purchase, false);
-              }
-            });
-          } else {
-            console.warn('Purchase failed:', errorCode);
-          }
-        });
-      };
-
-      connectAndListen();
-
-      return () => {
-        InAppPurchases.disconnectAsync();
-      };
-    }, []);
 
     if (Platform.OS === 'android') {
       Notifications.setNotificationChannelAsync('alarm', {
@@ -123,9 +94,37 @@ export default function App() {
     }
   }, []);
 
+  // In-App Purchase setup
+  useEffect(() => {
+    const connectAndListen = async () => {
+      await InAppPurchases.connectAsync();
+
+      InAppPurchases.setPurchaseListener(({ responseCode, results, errorCode }) => {
+        if (responseCode === InAppPurchases.IAPResponseCode.OK) {
+          results.forEach(async purchase => {
+            if (!purchase.acknowledged) {
+              if (purchase.productId === 'premium_upgrade') {
+                setIsPremium(true);
+                await AsyncStorage.setItem('isPremium', 'true');
+              }
+              await InAppPurchases.finishTransactionAsync(purchase, false);
+            }
+          });
+        } else {
+          console.warn('Purchase failed:', errorCode);
+        }
+      });
+    };
+
+    connectAndListen();
+    return () => {
+      InAppPurchases.disconnectAsync();
+    };
+  }, []);
+
   const handleUpgradePurchase = async () => {
     try {
-      const items = ['premium_upgrade']; // Match your product ID
+      const items = ['premium_upgrade'];
       await InAppPurchases.getProductsAsync(items);
       await InAppPurchases.purchaseItemAsync('premium_upgrade');
     } catch (e) {
@@ -354,26 +353,11 @@ const styles = StyleSheet.create({
   darkContainer: {
     backgroundColor: '#1c1c1e',
   },
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 6,
-  },
-  upgradeContainer: {
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
   upgradeButton: {
     backgroundColor: '#4A4A58',
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 8,
-  },
-  upgradeText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 16,
   },
   upgradeRow: {
     flexDirection: 'row',

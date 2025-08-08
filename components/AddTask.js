@@ -13,7 +13,6 @@ const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const PRIMARY = '#4A4A58';
 
 const AddTask = ({
-  visible,
   onCancel,
   onAdd,
   darkMode
@@ -38,7 +37,7 @@ const AddTask = ({
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent>
+    <Modal animationType="slide" transparent>
       <View style={styles.overlay}>
         <View style={[styles.card, darkMode && styles.darkCard]}>
           <Text style={[styles.title, darkMode && { color: '#fff' }]}>New Task</Text>
