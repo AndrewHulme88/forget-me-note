@@ -124,11 +124,14 @@ export default function App() {
 
   const handleUpgradePurchase = async () => {
     try {
-      const items = ['premium_upgrade'];
-      await InAppPurchases.getProductsAsync(items);
+      const { responseCode, results } = await InAppPurchases.getProductsAsync(['premium_upgrade']);
+      if (responseCode !== InAppPurchases.IAPResponseCode.OK || !results?.length) {
+        Alert.alert('Product not found', 'Check product ID and App Store Connect status.');
+        return;
+      }
       await InAppPurchases.purchaseItemAsync('premium_upgrade');
     } catch (e) {
-      console.warn('Purchase error:', e);
+      Alert.alert('Purchase error', String(e?.message || e));
     }
   };
 
