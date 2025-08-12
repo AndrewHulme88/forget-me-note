@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   FlatList,
@@ -47,6 +47,11 @@ export default function App() {
   endDate.setDate(today.getDate() + 5);
   const atStart = selectedString === startDate.toDateString();
   const atEnd = selectedString === endDate.toDateString();
+
+  // ===== IAP connection guards =====
+  const iapConnectedRef = useRef(false);
+  const purchasingRef = useRef(false);
+  const restoringRef = useRef(false);
 
   // Intro flag
   useEffect(() => {
@@ -97,19 +102,22 @@ export default function App() {
     }
   }, []);
 
-  // In-App Purchases: connect, restore, and listen
+  // In-App Purchases: connect once, restore, and listen
   useEffect(() => {
     let mounted = true;
 
     const initIAP = async () => {
       try {
-        await InAppPurchases.connectAsync();
+        if (!iapConnectedRef.current) {
+          await InAppPurchases.connectAsync();
+          iapConnectedRef.current = true;
+        }
 
         // Restore on launch (non-consumable)
         const hist = await InAppPurchases.getPurchaseHistoryAsync();
-        if (hist.responseCode === InAppPurchases.IAPResponseCode.OK) {
+        if (mounted && hist.responseCode === InAppPurchases.IAPResponseCode.OK) {
           const hasPremium = hist.results?.some(p => p.productId === 'premium_upgrade');
-          if (mounted && hasPremium) {
+          if (hasPremium) {
             setIsPremium(true);
             await AsyncStorage.setItem('isPremium', 'true');
           }
@@ -118,6 +126,8 @@ export default function App() {
         InAppPurchases.setPurchaseListener(async ({ responseCode, results, errorCode }) => {
           if (responseCode !== InAppPurchases.IAPResponseCode.OK) {
             console.warn('Purchase failed:', errorCode);
+            purchasingRef.current = false;
+            restoringRef.current = false;
             return;
           }
           for (const purchase of results || []) {
@@ -131,42 +141,50 @@ export default function App() {
               console.warn('finishTransaction error', e);
             }
           }
+          purchasingRef.current = false;
+          restoringRef.current = false;
         });
       } catch (e) {
-        console.warn('IAP init error', e);
+        // Ignore "already connected" style errors
+        console.warn('IAP init error', e?.message || e);
       }
     };
 
     initIAP();
     return () => {
       mounted = false;
-      InAppPurchases.disconnectAsync().catch(() => {});
+      // Don’t disconnect in production unless you need to.
+      // If you do, also set iapConnectedRef.current = false
+      // InAppPurchases.disconnectAsync().catch(() => {});
     };
   }, []);
 
   const handleUpgradePurchase = async () => {
+    if (purchasingRef.current) return;
+    purchasingRef.current = true;
     try {
-      await InAppPurchases.connectAsync();
       const { responseCode, results } = await InAppPurchases.getProductsAsync(['premium_upgrade']);
       if (responseCode !== InAppPurchases.IAPResponseCode.OK || !results?.length) {
         Alert.alert('Product not found', 'Check product ID and App Store Connect status.');
+        purchasingRef.current = false;
         return;
       }
       const res = await InAppPurchases.purchaseItemAsync('premium_upgrade');
-
-      // Optimistic unlock; listener will also set + persist
+      // Optimistic unlock; listener will also persist and clear lock
       if (res?.responseCode === InAppPurchases.IAPResponseCode.OK) {
         setIsPremium(true);
         await AsyncStorage.setItem('isPremium', 'true');
       }
     } catch (e) {
       Alert.alert('Purchase error', String(e?.message || e));
+      purchasingRef.current = false;
     }
   };
 
   const handleRestore = async () => {
+    if (restoringRef.current) return;
+    restoringRef.current = true;
     try {
-      await InAppPurchases.connectAsync();
       const { responseCode, results } = await InAppPurchases.getPurchaseHistoryAsync();
       if (responseCode === InAppPurchases.IAPResponseCode.OK) {
         const hasPremium = results?.some(p => p.productId === 'premium_upgrade');
@@ -182,6 +200,8 @@ export default function App() {
       }
     } catch (e) {
       Alert.alert('Restore error', String(e?.message || e));
+    } finally {
+      restoringRef.current = false;
     }
   };
 
