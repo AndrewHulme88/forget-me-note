@@ -22,6 +22,7 @@ import Footer from './components/Footer';
 import AddTask from './components/AddTask';
 import IntroScreen from './components/IntroScreen';
 
+const PREMIUM_ID = 'premium_upgrade';
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export default function App() {
@@ -48,12 +49,12 @@ export default function App() {
   const atStart = selectedString === startDate.toDateString();
   const atEnd = selectedString === endDate.toDateString();
 
-  // ===== IAP connection guards =====
+  // IAP connection guards
   const iapConnectedRef = useRef(false);
   const purchasingRef = useRef(false);
   const restoringRef = useRef(false);
 
-  // Intro flag
+  // First-run intro
   useEffect(() => {
     const checkIntro = async () => {
       const seen = await AsyncStorage.getItem('seenIntro');
@@ -116,7 +117,7 @@ export default function App() {
         // Restore on launch (non-consumable)
         const hist = await InAppPurchases.getPurchaseHistoryAsync();
         if (mounted && hist.responseCode === InAppPurchases.IAPResponseCode.OK) {
-          const hasPremium = hist.results?.some(p => p.productId === 'premium_upgrade');
+          const hasPremium = hist.results?.some(p => p.productId === PREMIUM_ID);
           if (hasPremium) {
             setIsPremium(true);
             await AsyncStorage.setItem('isPremium', 'true');
@@ -132,7 +133,7 @@ export default function App() {
           }
           for (const purchase of results || []) {
             try {
-              if (purchase.productId === 'premium_upgrade') {
+              if (purchase.productId === PREMIUM_ID) {
                 setIsPremium(true);
                 await AsyncStorage.setItem('isPremium', 'true');
               }
@@ -153,8 +154,7 @@ export default function App() {
     initIAP();
     return () => {
       mounted = false;
-      // Don’t disconnect in production unless you need to.
-      // If you do, also set iapConnectedRef.current = false
+      // For production you can leave the connection open; disconnect if you prefer:
       // InAppPurchases.disconnectAsync().catch(() => {});
     };
   }, []);
@@ -163,14 +163,14 @@ export default function App() {
     if (purchasingRef.current) return;
     purchasingRef.current = true;
     try {
-      const { responseCode, results } = await InAppPurchases.getProductsAsync(['premium_upgrade']);
+      const { responseCode, results } = await InAppPurchases.getProductsAsync([PREMIUM_ID]);
       if (responseCode !== InAppPurchases.IAPResponseCode.OK || !results?.length) {
         Alert.alert('Product not found', 'Check product ID and App Store Connect status.');
         purchasingRef.current = false;
         return;
       }
-      const res = await InAppPurchases.purchaseItemAsync('premium_upgrade');
-      // Optimistic unlock; listener will also persist and clear lock
+      const res = await InAppPurchases.purchaseItemAsync(PREMIUM_ID);
+      // Optimistic unlock; listener persists as well
       if (res?.responseCode === InAppPurchases.IAPResponseCode.OK) {
         setIsPremium(true);
         await AsyncStorage.setItem('isPremium', 'true');
@@ -187,7 +187,7 @@ export default function App() {
     try {
       const { responseCode, results } = await InAppPurchases.getPurchaseHistoryAsync();
       if (responseCode === InAppPurchases.IAPResponseCode.OK) {
-        const hasPremium = results?.some(p => p.productId === 'premium_upgrade');
+        const hasPremium = results?.some(p => p.productId === PREMIUM_ID);
         if (hasPremium) {
           setIsPremium(true);
           await AsyncStorage.setItem('isPremium', 'true');
@@ -207,18 +207,37 @@ export default function App() {
 
   const scheduleReminder = async (taskId, time, type) => {
     if (!isPremium) return;
-    const triggerDate = new Date(time);
+    // Ask permission if needed (helps TestFlight users)
+    const perm = await Notifications.getPermissionsAsync();
+    if (perm.status !== 'granted') {
+      const req = await Notifications.requestPermissionsAsync();
+      if (req.status !== 'granted') {
+        Alert.alert('Notifications disabled', 'Enable notifications in Settings to get reminders.');
+        return;
+      }
+    }
+
+    // Ensure valid future time (iOS can silently ignore near-past triggers)
+    let triggerDate = new Date(time);
+    const now = new Date();
+    if (triggerDate.getTime() <= now.getTime() + 5000) {
+      triggerDate = new Date(now.getTime() + 10_000);
+    }
+
     const id = await Notifications.scheduleNotificationAsync({
       content: {
         title: 'Task Reminder',
         body: `Don't forget: ${tasks.find(t => t.id === taskId)?.name || 'a task'}`,
-        sound: type === 'alarm' ? 'default' : null,
+        sound: type === 'alarm' ? 'default' : undefined, // undefined -> silent banner on iOS
       },
       trigger: triggerDate,
     });
+
     setTasks(prev =>
       prev.map(task =>
-        task.id === taskId ? { ...task, reminder: { time, type, notifId: id } } : task
+        task.id === taskId
+          ? { ...task, reminder: { time: triggerDate.toISOString(), type, notifId: id } }
+          : task
       )
     );
   };
@@ -226,7 +245,7 @@ export default function App() {
   const cancelReminder = async (taskId) => {
     const task = tasks.find(t => t.id === taskId);
     if (task?.reminder?.notifId) {
-      await Notifications.cancelScheduledNotificationAsync(task.reminder.notifId);
+      try { await Notifications.cancelScheduledNotificationAsync(task.reminder.notifId); } catch {}
     }
     setTasks(prev =>
       prev.map(task => (task.id === taskId ? { ...task, reminder: null } : task))
@@ -300,7 +319,7 @@ export default function App() {
     },
   });
 
-  // One-shot upgrade prompt
+  // One-shot upgrade prompt (free users tapping the clock)
   useEffect(() => {
     if (showUpgradePrompt) {
       Alert.alert(
@@ -311,6 +330,7 @@ export default function App() {
     }
   }, [showUpgradePrompt]);
 
+  // Modal screens
   if (showAddScreen) {
     return (
       <AddTask
@@ -336,6 +356,7 @@ export default function App() {
     );
   }
 
+  // Main
   return (
     <SafeAreaView
       style={[styles.container, darkMode && styles.darkContainer]}
