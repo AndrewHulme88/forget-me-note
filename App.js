@@ -14,12 +14,13 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import * as Notifications from 'expo-notifications';
+import * as InAppPurchases from 'expo-in-app-purchases';
+
 import Header from './components/Header';
 import TaskItem from './components/TaskItem';
 import Footer from './components/Footer';
 import AddTask from './components/AddTask';
 import IntroScreen from './components/IntroScreen';
-import * as InAppPurchases from 'expo-in-app-purchases';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -47,6 +48,7 @@ export default function App() {
   const atStart = selectedString === startDate.toDateString();
   const atEnd = selectedString === endDate.toDateString();
 
+  // Intro flag
   useEffect(() => {
     const checkIntro = async () => {
       const seen = await AsyncStorage.getItem('seenIntro');
@@ -55,6 +57,7 @@ export default function App() {
     checkIntro();
   }, []);
 
+  // Load persisted data
   useEffect(() => {
     const load = async () => {
       const json = await AsyncStorage.getItem('tasks');
@@ -65,6 +68,7 @@ export default function App() {
     load();
   }, []);
 
+  // Persist tasks
   useEffect(() => {
     AsyncStorage.setItem('tasks', JSON.stringify(tasks));
   }, [tasks]);
@@ -85,7 +89,6 @@ export default function App() {
         importance: Notifications.AndroidImportance.HIGH,
         sound: 'default',
       });
-
       Notifications.setNotificationChannelAsync('silent', {
         name: 'Silent Channel',
         importance: Notifications.AndroidImportance.DEFAULT,
@@ -94,50 +97,96 @@ export default function App() {
     }
   }, []);
 
-  // In-App Purchase setup
+  // In-App Purchases: connect, restore, and listen
   useEffect(() => {
-    const connectAndListen = async () => {
-      await InAppPurchases.connectAsync();
+    let mounted = true;
 
-      InAppPurchases.setPurchaseListener(({ responseCode, results, errorCode }) => {
-        if (responseCode === InAppPurchases.IAPResponseCode.OK) {
-          results.forEach(async purchase => {
-            if (!purchase.acknowledged) {
+    const initIAP = async () => {
+      try {
+        await InAppPurchases.connectAsync();
+
+        // Restore on launch (non-consumable)
+        const hist = await InAppPurchases.getPurchaseHistoryAsync();
+        if (hist.responseCode === InAppPurchases.IAPResponseCode.OK) {
+          const hasPremium = hist.results?.some(p => p.productId === 'premium_upgrade');
+          if (mounted && hasPremium) {
+            setIsPremium(true);
+            await AsyncStorage.setItem('isPremium', 'true');
+          }
+        }
+
+        InAppPurchases.setPurchaseListener(async ({ responseCode, results, errorCode }) => {
+          if (responseCode !== InAppPurchases.IAPResponseCode.OK) {
+            console.warn('Purchase failed:', errorCode);
+            return;
+          }
+          for (const purchase of results || []) {
+            try {
               if (purchase.productId === 'premium_upgrade') {
                 setIsPremium(true);
                 await AsyncStorage.setItem('isPremium', 'true');
               }
               await InAppPurchases.finishTransactionAsync(purchase, false);
+            } catch (e) {
+              console.warn('finishTransaction error', e);
             }
-          });
-        } else {
-          console.warn('Purchase failed:', errorCode);
-        }
-      });
+          }
+        });
+      } catch (e) {
+        console.warn('IAP init error', e);
+      }
     };
 
-    connectAndListen();
+    initIAP();
     return () => {
-      InAppPurchases.disconnectAsync();
+      mounted = false;
+      InAppPurchases.disconnectAsync().catch(() => {});
     };
   }, []);
 
   const handleUpgradePurchase = async () => {
     try {
+      await InAppPurchases.connectAsync();
       const { responseCode, results } = await InAppPurchases.getProductsAsync(['premium_upgrade']);
       if (responseCode !== InAppPurchases.IAPResponseCode.OK || !results?.length) {
         Alert.alert('Product not found', 'Check product ID and App Store Connect status.');
         return;
       }
-      await InAppPurchases.purchaseItemAsync('premium_upgrade');
+      const res = await InAppPurchases.purchaseItemAsync('premium_upgrade');
+
+      // Optimistic unlock; listener will also set + persist
+      if (res?.responseCode === InAppPurchases.IAPResponseCode.OK) {
+        setIsPremium(true);
+        await AsyncStorage.setItem('isPremium', 'true');
+      }
     } catch (e) {
       Alert.alert('Purchase error', String(e?.message || e));
     }
   };
 
+  const handleRestore = async () => {
+    try {
+      await InAppPurchases.connectAsync();
+      const { responseCode, results } = await InAppPurchases.getPurchaseHistoryAsync();
+      if (responseCode === InAppPurchases.IAPResponseCode.OK) {
+        const hasPremium = results?.some(p => p.productId === 'premium_upgrade');
+        if (hasPremium) {
+          setIsPremium(true);
+          await AsyncStorage.setItem('isPremium', 'true');
+          Alert.alert('Restored', 'Premium restored on this device.');
+        } else {
+          Alert.alert('Nothing to restore', 'No premium purchase found.');
+        }
+      } else {
+        Alert.alert('Restore failed', 'Please try again.');
+      }
+    } catch (e) {
+      Alert.alert('Restore error', String(e?.message || e));
+    }
+  };
+
   const scheduleReminder = async (taskId, time, type) => {
     if (!isPremium) return;
-
     const triggerDate = new Date(time);
     const id = await Notifications.scheduleNotificationAsync({
       content: {
@@ -147,7 +196,6 @@ export default function App() {
       },
       trigger: triggerDate,
     });
-
     setTasks(prev =>
       prev.map(task =>
         task.id === taskId ? { ...task, reminder: { time, type, notifId: id } } : task
@@ -160,11 +208,8 @@ export default function App() {
     if (task?.reminder?.notifId) {
       await Notifications.cancelScheduledNotificationAsync(task.reminder.notifId);
     }
-
     setTasks(prev =>
-      prev.map(task =>
-        task.id === taskId ? { ...task, reminder: null } : task
-      )
+      prev.map(task => (task.id === taskId ? { ...task, reminder: null } : task))
     );
   };
 
@@ -174,13 +219,7 @@ export default function App() {
     setTasks(prev =>
       prev.map(task =>
         task.id === id
-          ? {
-              ...task,
-              done: {
-                ...task.done,
-                [dateKey]: !task.done?.[dateKey],
-              },
-            }
+          ? { ...task, done: { ...task.done, [dateKey]: !task.done?.[dateKey] } }
           : task
       )
     );
@@ -196,17 +235,11 @@ export default function App() {
       Alert.alert('Upgrade required', 'Free version is limited to 10 tasks.');
       return;
     }
-
     const trimmed = taskName.trim();
     if (!trimmed) return;
     setTasks(prev => [
       ...prev,
-      {
-        id: Date.now().toString(),
-        name: trimmed,
-        done: {},
-        days: [...selectedDays],
-      },
+      { id: Date.now().toString(), name: trimmed, done: {}, days: [...selectedDays] },
     ]);
   };
 
@@ -235,18 +268,19 @@ export default function App() {
   };
 
   const panResponder = PanResponder.create({
-    onMoveShouldSetPanResponder: (_, gestureState) => Math.abs(gestureState.dx) > 20,
-    onPanResponderRelease: (_, gestureState) => {
-      if (gestureState.dx < -50 && !atEnd) {
+    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 20,
+    onPanResponderRelease: (_, g) => {
+      if (g.dx < -50 && !atEnd) {
         Haptics.selectionAsync();
         animateSlide(1);
-      } else if (gestureState.dx > 50 && !atStart) {
+      } else if (g.dx > 50 && !atStart) {
         Haptics.selectionAsync();
         animateSlide(-1);
       }
     },
   });
 
+  // One-shot upgrade prompt
   useEffect(() => {
     if (showUpgradePrompt) {
       Alert.alert(
@@ -330,6 +364,9 @@ export default function App() {
           <Text style={{ color: darkMode ? '#fff' : '#333' }}>Unlock premium features:</Text>
           <Pressable onPress={handleUpgradePurchase} style={styles.upgradeButton}>
             <Text style={{ color: '#fff' }}>Upgrade</Text>
+          </Pressable>
+          <Pressable onPress={handleRestore} style={[styles.upgradeButton, { marginLeft: 8 }]}>
+            <Text style={{ color: '#fff' }}>Restore</Text>
           </Pressable>
         </View>
       )}
