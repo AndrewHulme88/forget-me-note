@@ -21,9 +21,10 @@ import TaskItem from './components/TaskItem';
 import Footer from './components/Footer';
 import AddTask from './components/AddTask';
 import IntroScreen from './components/IntroScreen';
+import InfoModal from './components/InfoModal';
 
-const PREMIUM_ID = 'premium_upgrade';
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const PREMIUM_ID = 'premium_upgrade';
 
 export default function App() {
   const [tasks, setTasks] = useState([]);
@@ -33,6 +34,7 @@ export default function App() {
   const [isPremium, setIsPremium] = useState(false);
   const [showIntro, setShowIntro] = useState(false);
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
 
   const slideAnim = useState(new Animated.Value(0))[0];
 
@@ -49,7 +51,7 @@ export default function App() {
   const atStart = selectedString === startDate.toDateString();
   const atEnd = selectedString === endDate.toDateString();
 
-  // IAP connection guards
+  // ===== IAP connection guards =====
   const iapConnectedRef = useRef(false);
   const purchasingRef = useRef(false);
   const restoringRef = useRef(false);
@@ -79,7 +81,7 @@ export default function App() {
     AsyncStorage.setItem('tasks', JSON.stringify(tasks));
   }, [tasks]);
 
-  // Notifications setup
+  // Notifications setup (once)
   useEffect(() => {
     Notifications.setNotificationHandler({
       handleNotification: async () => ({
@@ -146,7 +148,6 @@ export default function App() {
           restoringRef.current = false;
         });
       } catch (e) {
-        // Ignore "already connected" style errors
         console.warn('IAP init error', e?.message || e);
       }
     };
@@ -154,7 +155,7 @@ export default function App() {
     initIAP();
     return () => {
       mounted = false;
-      // For production you can leave the connection open; disconnect if you prefer:
+      // Keep connected during app lifetime; disconnecting here is optional.
       // InAppPurchases.disconnectAsync().catch(() => {});
     };
   }, []);
@@ -170,7 +171,7 @@ export default function App() {
         return;
       }
       const res = await InAppPurchases.purchaseItemAsync(PREMIUM_ID);
-      // Optimistic unlock; listener persists as well
+      // Optimistic unlock; listener will also persist and clear lock
       if (res?.responseCode === InAppPurchases.IAPResponseCode.OK) {
         setIsPremium(true);
         await AsyncStorage.setItem('isPremium', 'true');
@@ -207,37 +208,20 @@ export default function App() {
 
   const scheduleReminder = async (taskId, time, type) => {
     if (!isPremium) return;
-    // Ask permission if needed (helps TestFlight users)
-    const perm = await Notifications.getPermissionsAsync();
-    if (perm.status !== 'granted') {
-      const req = await Notifications.requestPermissionsAsync();
-      if (req.status !== 'granted') {
-        Alert.alert('Notifications disabled', 'Enable notifications in Settings to get reminders.');
-        return;
-      }
-    }
 
-    // Ensure valid future time (iOS can silently ignore near-past triggers)
-    let triggerDate = new Date(time);
-    const now = new Date();
-    if (triggerDate.getTime() <= now.getTime() + 5000) {
-      triggerDate = new Date(now.getTime() + 10_000);
-    }
-
+    // (Optional) ensure permission and future time here if needed
+    const triggerDate = new Date(time);
     const id = await Notifications.scheduleNotificationAsync({
       content: {
         title: 'Task Reminder',
         body: `Don't forget: ${tasks.find(t => t.id === taskId)?.name || 'a task'}`,
-        sound: type === 'alarm' ? 'default' : undefined, // undefined -> silent banner on iOS
+        sound: type === 'alarm' ? 'default' : null,
       },
       trigger: triggerDate,
     });
-
     setTasks(prev =>
       prev.map(task =>
-        task.id === taskId
-          ? { ...task, reminder: { time: triggerDate.toISOString(), type, notifId: id } }
-          : task
+        task.id === taskId ? { ...task, reminder: { time, type, notifId: id } } : task
       )
     );
   };
@@ -245,7 +229,7 @@ export default function App() {
   const cancelReminder = async (taskId) => {
     const task = tasks.find(t => t.id === taskId);
     if (task?.reminder?.notifId) {
-      try { await Notifications.cancelScheduledNotificationAsync(task.reminder.notifId); } catch {}
+      await Notifications.cancelScheduledNotificationAsync(task.reminder.notifId);
     }
     setTasks(prev =>
       prev.map(task => (task.id === taskId ? { ...task, reminder: null } : task))
@@ -319,7 +303,7 @@ export default function App() {
     },
   });
 
-  // One-shot upgrade prompt (free users tapping the clock)
+  // One-shot upgrade prompt
   useEffect(() => {
     if (showUpgradePrompt) {
       Alert.alert(
@@ -400,9 +384,12 @@ export default function App() {
         />
       </Animated.View>
 
+      {/* Upgrade bar pinned above the footer */}
       {!isPremium && (
-        <View style={styles.upgradeRow}>
-          <Text style={{ color: darkMode ? '#fff' : '#333' }}>Unlock premium features:</Text>
+        <View style={styles.upgradeBar}>
+          <Text style={{ color: darkMode ? '#fff' : '#333', flex: 1 }}>
+            Unlock premium features:
+          </Text>
           <Pressable onPress={handleUpgradePurchase} style={styles.upgradeButton}>
             <Text style={{ color: '#fff' }}>Upgrade</Text>
           </Pressable>
@@ -412,11 +399,15 @@ export default function App() {
         </View>
       )}
 
+      {/* Info modal */}
+      <InfoModal visible={showInfo} onClose={() => setShowInfo(false)} darkMode={darkMode} />
+
       <Footer
         darkMode={darkMode}
         setDarkMode={isPremium ? setDarkMode : () => {}}
         resetToToday={() => setSelectedDate(new Date())}
         onAddPress={() => setShowAddScreen(true)}
+        onInfoPress={() => setShowInfo(true)}
         isToday={todayString === selectedString}
         isPremium={isPremium}
       />
@@ -434,19 +425,23 @@ const styles = StyleSheet.create({
   darkContainer: {
     backgroundColor: '#1c1c1e',
   },
+
+  // Upgrade bar (absolute, just above the footer)
+  upgradeBar: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 76, // sits above the footer (adjust if your footer height changes)
+    backgroundColor: '#eee',
+    borderRadius: 8,
+    padding: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   upgradeButton: {
     backgroundColor: '#4A4A58',
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 8,
-  },
-  upgradeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 10,
-    backgroundColor: '#eee',
-    borderRadius: 8,
-    margin: 10,
   },
 });
