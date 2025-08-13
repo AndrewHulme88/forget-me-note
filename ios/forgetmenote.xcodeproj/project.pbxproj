@@ -338,6 +338,7 @@
 			baseConfigurationReference = 0D5E2C3CC07ECB2D3ED0C70A /* Pods-forgetmenote.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = forgetmenote/forgetmenote.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
@@ -375,6 +376,7 @@
 			baseConfigurationReference = A1BA146D7A09983246698D94 /* Pods-forgetmenote.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = forgetmenote/forgetmenote.entitlements;
 				CURRENT_PROJECT_VERSION = 1;

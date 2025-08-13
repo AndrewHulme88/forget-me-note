@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "recollecto",
-    "slug": "recollecto",
+    "name": "Recollecto",
+    "slug": "forget-me-note",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.gorlami.forgetmenote",
-      "buildNumber": "17",
+      "buildNumber": "18",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSUserNotificationUsageDescription": "Allow notifications so Recollecto can remind you about tasks."
