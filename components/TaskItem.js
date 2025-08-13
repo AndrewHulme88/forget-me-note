@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import ReminderModal from './ReminderModal';
+
+const PRIMARY = '#4A4A58';
+const ALERT_RED = '#E74C3C';
 
 const TaskItem = ({
   task,
@@ -9,11 +12,18 @@ const TaskItem = ({
   onDelete,
   disabled,
   darkMode,
-  onSetReminder,
+  onSetReminder,      // expects (taskId, reminderOrNull)
   isPremium,
   showUpgradePrompt,
+  hasReminder,        // optional: if App.js passes this, we use it; otherwise derive from task.reminder
 }) => {
   const [showReminder, setShowReminder] = useState(false);
+
+  const derivedHasReminder =
+    hasReminder ??
+    !!(task?.reminder && ((task.reminder.notifIds?.length ?? 0) > 0 || task.reminder.notifId));
+
+  const iconColor = derivedHasReminder ? ALERT_RED : (darkMode ? '#fff' : '#333');
 
   const handleClockPress = () => {
     if (!isPremium) {
@@ -37,10 +47,10 @@ const TaskItem = ({
       </Text>
 
       <View style={styles.actions}>
-        <Pressable onPress={handleClockPress} style={styles.iconButton}>
-          <Feather name="clock" size={18} color={darkMode ? '#fff' : '#333'} />
+        <Pressable onPress={handleClockPress} style={styles.iconButton} accessibilityLabel={derivedHasReminder ? 'Edit reminder (set)' : 'Set reminder'}>
+          <Feather name="clock" size={18} color={iconColor} />
         </Pressable>
-        <Pressable onPress={() => onDelete(task.id)} style={styles.iconButton}>
+        <Pressable onPress={() => onDelete(task.id)} style={styles.iconButton} accessibilityLabel="Delete task">
           <Feather name="trash-2" size={18} color="#ff5c5c" />
         </Pressable>
       </View>
@@ -49,15 +59,12 @@ const TaskItem = ({
         <ReminderModal
           visible={showReminder}
           onClose={() => setShowReminder(false)}
-          onSetReminder={(time, type) => {
-            onSetReminder(task.id, time, type);
+          existingReminder={task.reminder}
+          onSetReminder={(reminder) => {
+            // reminder is either { time: ISOString } or null
+            onSetReminder(task.id, reminder);
             setShowReminder(false);
           }}
-          onRemoveReminder={() => {
-            onSetReminder(task.id, null, null);
-            setShowReminder(false);
-          }}
-          currentReminder={task.reminder}
         />
       )}
     </View>
@@ -87,8 +94,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   checked: {
-    backgroundColor: '#4A4A58',
-    borderColor: '#4A4A58',
+    backgroundColor: PRIMARY,
+    borderColor: PRIMARY,
   },
   text: {
     flex: 1,

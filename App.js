@@ -469,6 +469,7 @@ export default function App() {
           renderItem={({ item }) => (
             <TaskItem
               task={{ ...item, done: item.done?.[selectedString] || false }}
+              hasReminder={!!(item.reminder && (item.reminder.notifIds?.length || item.reminder.notifId))}
               onToggle={toggleTask}
               onDelete={deleteTask}
               disabled={!canToggle}
