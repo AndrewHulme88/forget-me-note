@@ -27,7 +27,6 @@ const Header = ({ selectedDate, atStart, atEnd, darkMode, animateSlide }) => {
   return (
     <View style={styles.container}>
       <View style={styles.navRow}>
-        {/* Left arrow (space always reserved) */}
         <Pressable
           onPress={() => animateSlide(-1)}
           disabled={atStart}
@@ -39,12 +38,10 @@ const Header = ({ selectedDate, atStart, atEnd, darkMode, animateSlide }) => {
           <Ionicons name="chevron-back" size={24} color={iconColor} />
         </Pressable>
 
-        {/* Center date */}
         <Text style={[styles.dateText, darkMode && styles.darkText]} numberOfLines={1}>
           {labelDate}
         </Text>
 
-        {/* Right arrow (space always reserved) */}
         <Pressable
           onPress={() => animateSlide(1)}
           disabled={atEnd}
@@ -68,14 +65,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     width: '100%',
-    paddingHorizontal: 16, // symmetric edge padding so arrows aren’t flush
+    paddingHorizontal: 16, 
   },
   arrowBox: {
-    width: 44,              // roomy touch target, reserves space
+    width: 44,             
     alignItems: 'flex-start',
   },
   rightBox: { alignItems: 'flex-end' },
-  invisible: { opacity: 0 }, // keeps layout space without showing
+  invisible: { opacity: 0 }, 
   dateText: {
     flex: 1,
     textAlign: 'center',

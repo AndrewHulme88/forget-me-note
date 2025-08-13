@@ -14,10 +14,8 @@ const IntroScreen = ({ onContinue, darkMode }) => {
             ios: { allowAlert: true, allowSound: true, allowBadge: true },
           });
         }
-        // If still not granted, we still proceed—app works without alerts
       }
     } catch {
-      // Non-fatal: proceed
     } finally {
       onContinue();
     }
@@ -25,11 +23,11 @@ const IntroScreen = ({ onContinue, darkMode }) => {
 
   return (
     <View style={[styles.container, darkMode && styles.darkContainer]}>
-      <Text style={[styles.title, darkMode && styles.darkText]}>Welcome to Forget Me Note</Text>
+      <Text style={[styles.title, darkMode && styles.darkText]}>Welcome to Recollecto</Text>
       <Text style={[styles.description, darkMode && styles.darkText]}>
         • Swipe through days{'\n'}
-        • Track and check off tasks{'\n'}
-        • Set reminders for tasks
+        • Add, remove, track, and check off tasks{'\n'}
+        • Set reminders for tasks (premium)
       </Text>
 
       <Pressable onPress={handleContinue} style={styles.button} accessibilityRole="button">

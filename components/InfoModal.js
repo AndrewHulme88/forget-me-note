@@ -16,7 +16,7 @@ const InfoModal = ({ visible, onClose, darkMode }) => {
       <View style={styles.overlay}>
         <View style={[styles.card, darkMode && styles.darkCard]}>
           <Text style={[styles.title, darkMode && { color: '#fff' }]}>
-            How to use Forget Me Note
+            How to use Recollecto
           </Text>
 
           <ScrollView

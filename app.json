@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "forget-me-note",
-    "slug": "forget-me-note",
+    "name": "recollecto",
+    "slug": "recollecto",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -20,7 +20,7 @@
       "buildNumber": "17",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSUserNotificationUsageDescription": "Allow notifications so Forget Me Note can remind you about tasks."
+        "NSUserNotificationUsageDescription": "Allow notifications so Recollecto can remind you about tasks."
       }
     },
     "android": {

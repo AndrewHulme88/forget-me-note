@@ -12,10 +12,10 @@ const TaskItem = ({
   onDelete,
   disabled,
   darkMode,
-  onSetReminder,      // (taskId, reminderOrNull)
+  onSetReminder,      
   isPremium,
   showUpgradePrompt,
-  hasReminder,        // optional; else derived from task.reminder
+  hasReminder,       
 }) => {
   const [showReminder, setShowReminder] = useState(false);
 
@@ -81,7 +81,7 @@ const TaskItem = ({
           onClose={() => setShowReminder(false)}
           existingReminder={task.reminder}
           onSetReminder={(reminder) => {
-            onSetReminder(task.id, reminder); // { time } or null
+            onSetReminder(task.id, reminder); 
             setShowReminder(false);
           }}
         />
@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   iconButton: { padding: 4 },
-  iconButtonRight: { marginLeft: 12 }, // replaces 'gap'
+  iconButtonRight: { marginLeft: 12 }, 
 });
 
 export default TaskItem;

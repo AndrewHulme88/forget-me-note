@@ -12,7 +12,6 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 const PRIMARY = '#4A4A58';
 
 const ReminderModal = ({ visible, onClose, onSetReminder, existingReminder }) => {
-  // Keep the committed time and a temp time the user can adjust
   const initial = existingReminder ? new Date(existingReminder.time) : new Date();
   const [time, setTime] = useState(initial);
   const [tempTime, setTempTime] = useState(initial);
@@ -35,7 +34,7 @@ const ReminderModal = ({ visible, onClose, onSetReminder, existingReminder }) =>
     onClose();
   };
 
-  // Guard against invalid Date -> CoreGraphics NaN warnings
+  // Guard against invalid Date - CoreGraphics NaN warnings
   const safeTempTime =
     Number.isFinite(tempTime?.getTime?.()) ? tempTime : new Date();
 
@@ -56,7 +55,6 @@ const ReminderModal = ({ visible, onClose, onSetReminder, existingReminder }) =>
             </Text>
           </View>
 
-          {/* Inline picker: user scrolls freely; we commit only on Set */}
           <DateTimePicker
             value={safeTempTime}
             mode="time"

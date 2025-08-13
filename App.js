@@ -25,7 +25,7 @@ import InfoModal from './components/InfoModal';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-// How far ahead to schedule (avoid iOS repeating quirks)
+// How far ahead to schedule 
 const DAILY_HORIZON_DAYS = 30;   // schedule next 30 daily occurrences
 const WEEKLY_HORIZON_WEEKS = 12; // schedule next 12 occurrences per selected weekday
 
@@ -35,7 +35,7 @@ export default function App() {
   const [darkMode, setDarkMode] = useState(false);
   const [showAddScreen, setShowAddScreen] = useState(false);
 
-  // Production: start false; real IAP controls premium.
+  // Production: start false
   const [isPremium, setIsPremium] = useState(false);
 
   const [showIntro, setShowIntro] = useState(false);
@@ -62,7 +62,7 @@ export default function App() {
   const purchasingRef = useRef(false);
   const restoringRef = useRef(false);
 
-  // First-run intro
+  // First run intro
   useEffect(() => {
     const checkIntro = async () => {
       const seen = await AsyncStorage.getItem('seenIntro');
@@ -87,7 +87,7 @@ export default function App() {
     AsyncStorage.setItem('tasks', JSON.stringify(tasks));
   }, [tasks]);
 
-  // Notifications foreground handler (once)
+  // Notifications foreground handler 
   useEffect(() => {
     Notifications.setNotificationHandler({
       handleNotification: async () => ({
@@ -107,7 +107,7 @@ export default function App() {
     }
   }, []);
 
-  // iOS permission request (once). Also add NSUserNotificationUsageDescription in app.json/app.config.
+  // iOS permission request
   useEffect(() => {
     (async () => {
       const { status: existing } = await Notifications.getPermissionsAsync();
@@ -127,7 +127,7 @@ export default function App() {
     })();
   }, []);
 
-  // In-App Purchases: connect/restore/listen
+  // In App Purchases: connect/restore/listen
   useEffect(() => {
     let mounted = true;
 
@@ -176,7 +176,6 @@ export default function App() {
     initIAP();
     return () => {
       mounted = false;
-      // Optionally: InAppPurchases.disconnectAsync().catch(() => {});
     };
   }, []);
 
@@ -258,7 +257,7 @@ export default function App() {
     d.setSeconds(0, 0);
     d.setHours(hour, minute, 0, 0);
 
-    const today = now.getDay(); // 0..6
+    const today = now.getDay(); 
     let diff = weekdayZeroBased - today;
     if (diff < 0) diff += 7;
     d.setDate(now.getDate() + diff);
@@ -269,7 +268,7 @@ export default function App() {
     return d;
   }
 
-  // Schedule repeating reminders WITHOUT repeats (pre-schedule concrete dates)
+  // Schedule repeating reminders without repeats (pre-schedule concrete dates)
   const scheduleReminder = async (taskId, timeISO) => {
     if (!isPremium) return;
 
@@ -297,7 +296,7 @@ export default function App() {
     const scheduleAt = async (dateObj) => {
       const id = await Notifications.scheduleNotificationAsync({
         content: baseContent,
-        trigger: { type: 'date', date: dateObj }, // new format
+        trigger: { type: 'date', date: dateObj }, 
       });
       notifIds.push(id);
     };
@@ -349,7 +348,6 @@ export default function App() {
     setTasks(prev => prev.filter(task => task.id !== id));
   };
 
-  // ⬇️ Unlimited tasks in free tier
   const addTask = (taskName, selectedDays) => {
     const trimmed = taskName.trim();
     if (!trimmed) return;
@@ -477,7 +475,6 @@ export default function App() {
         />
       </Animated.View>
 
-      {/* Upgrade bar pinned above the footer */}
       {!isPremium && (
         <View style={styles.upgradeBar}>
           <Text style={{ color: darkMode ? '#fff' : '#333', flex: 1 }}>
@@ -492,7 +489,6 @@ export default function App() {
         </View>
       )}
 
-      {/* Info modal */}
       <InfoModal visible={showInfo} onClose={() => setShowInfo(false)} darkMode={darkMode} />
 
       <Footer
@@ -519,7 +515,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#1c1c1e',
   },
 
-  // Upgrade bar (absolute, just above the footer)
   upgradeBar: {
     position: 'absolute',
     left: 16,
