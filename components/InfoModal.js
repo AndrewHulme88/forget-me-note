@@ -14,19 +14,19 @@ const InfoModal = ({ visible, onClose, darkMode }) => {
               • Swipe left/right (or use the arrows) to move between days.
             </Text>
             <Text style={[styles.point, darkMode && styles.darkText]}>
-              • Tap “＋ Add” to create a new task. Pick the days it repeats on (or leave blank for any day).
+              • Tap “＋” to create a new task. Pick the days it repeats on (or leave blank for all days).
             </Text>
             <Text style={[styles.point, darkMode && styles.darkText]}>
-              • Tap the checkbox to mark a task done for the selected day.
+              • Tap the checkbox to mark a task done for the selected day (only tasks for today can be checked off).
             </Text>
             <Text style={[styles.point, darkMode && styles.darkText]}>
-              • Tap the clock to set a reminder or alarm (Premium).
+              • Tap the clock to set or remove a reminder (Premium).
             </Text>
             <Text style={[styles.point, darkMode && styles.darkText]}>
               • Tap the trash icon to delete a task.
             </Text>
             <Text style={[styles.point, darkMode && styles.darkText]}>
-              • The Today button jumps back to today and is disabled when you’re already there.
+              • The Today button jumps back to today.
             </Text>
             <Text style={[styles.point, darkMode && styles.darkText]}>
               • Dark Mode is available with Premium.
