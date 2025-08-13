@@ -26,12 +26,22 @@ import InfoModal from './components/InfoModal';
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const PREMIUM_ID = 'premium_upgrade';
 
+// Expo/iOS weekday mapping: Sun=1 ... Sat=7 (used earlier; left for reference)
+const WEEKDAY_NUM = { Sun: 1, Mon: 2, Tue: 3, Wed: 4, Thu: 5, Fri: 6, Sat: 7 };
+
+// How far ahead to schedule (avoid iOS repeating quirks)
+const DAILY_HORIZON_DAYS = 30;   // schedule next 30 daily occurrences
+const WEEKLY_HORIZON_WEEKS = 12; // schedule next 12 occurrences per selected weekday
+
 export default function App() {
   const [tasks, setTasks] = useState([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [darkMode, setDarkMode] = useState(false);
   const [showAddScreen, setShowAddScreen] = useState(false);
-  const [isPremium, setIsPremium] = useState(false);
+
+  // Dev-only premium override: premium is on in debug/run:ios
+  const [isPremium, setIsPremium] = useState(__DEV__ ? true : false);
+
   const [showIntro, setShowIntro] = useState(false);
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
@@ -71,7 +81,7 @@ export default function App() {
       const json = await AsyncStorage.getItem('tasks');
       const premiumStatus = await AsyncStorage.getItem('isPremium');
       if (json) setTasks(JSON.parse(json));
-      if (premiumStatus === 'true') setIsPremium(true);
+      if (!__DEV__ && premiumStatus === 'true') setIsPremium(true);
     };
     load();
   }, []);
@@ -81,11 +91,12 @@ export default function App() {
     AsyncStorage.setItem('tasks', JSON.stringify(tasks));
   }, [tasks]);
 
-  // Notifications setup (once)
+  // Notifications foreground handler (once)
   useEffect(() => {
     Notifications.setNotificationHandler({
       handleNotification: async () => ({
-        shouldShowAlert: true,
+        shouldShowBanner: true, // iOS 15+
+        shouldShowList: true,
         shouldPlaySound: true,
         shouldSetBadge: false,
       }),
@@ -97,16 +108,32 @@ export default function App() {
         importance: Notifications.AndroidImportance.HIGH,
         sound: 'default',
       });
-      Notifications.setNotificationChannelAsync('silent', {
-        name: 'Silent Channel',
-        importance: Notifications.AndroidImportance.DEFAULT,
-        sound: null,
-      });
     }
   }, []);
 
-  // In-App Purchases: connect once, restore, and listen
+  // iOS permission request (once). Also add NSUserNotificationUsageDescription in app.json/app.config.
   useEffect(() => {
+    (async () => {
+      const { status: existing } = await Notifications.getPermissionsAsync();
+      let status = existing;
+      if (existing !== 'granted') {
+        const { status: asked } = await Notifications.requestPermissionsAsync({
+          ios: { allowAlert: true, allowSound: true, allowBadge: true },
+        });
+        status = asked;
+      }
+      if (status !== 'granted') {
+        Alert.alert(
+          'Notifications disabled',
+          'Enable them in iOS Settings > Notifications to receive alerts.'
+        );
+      }
+    })();
+  }, []);
+
+  // In-App Purchases: connect/restore/listen (skip entirely in dev)
+  useEffect(() => {
+    if (__DEV__) return;
     let mounted = true;
 
     const initIAP = async () => {
@@ -116,7 +143,6 @@ export default function App() {
           iapConnectedRef.current = true;
         }
 
-        // Restore on launch (non-consumable)
         const hist = await InAppPurchases.getPurchaseHistoryAsync();
         if (mounted && hist.responseCode === InAppPurchases.IAPResponseCode.OK) {
           const hasPremium = hist.results?.some(p => p.productId === PREMIUM_ID);
@@ -155,12 +181,14 @@ export default function App() {
     initIAP();
     return () => {
       mounted = false;
-      // Keep connected during app lifetime; disconnecting here is optional.
-      // InAppPurchases.disconnectAsync().catch(() => {});
     };
   }, []);
 
   const handleUpgradePurchase = async () => {
+    if (__DEV__) {
+      Alert.alert('Dev mode', 'Premium is unlocked in dev builds.');
+      return;
+    }
     if (purchasingRef.current) return;
     purchasingRef.current = true;
     try {
@@ -171,7 +199,6 @@ export default function App() {
         return;
       }
       const res = await InAppPurchases.purchaseItemAsync(PREMIUM_ID);
-      // Optimistic unlock; listener will also persist and clear lock
       if (res?.responseCode === InAppPurchases.IAPResponseCode.OK) {
         setIsPremium(true);
         await AsyncStorage.setItem('isPremium', 'true');
@@ -183,6 +210,10 @@ export default function App() {
   };
 
   const handleRestore = async () => {
+    if (__DEV__) {
+      Alert.alert('Dev mode', 'Premium is unlocked in dev builds.');
+      return;
+    }
     if (restoringRef.current) return;
     restoringRef.current = true;
     try {
@@ -206,33 +237,110 @@ export default function App() {
     }
   };
 
-  const scheduleReminder = async (taskId, time, type) => {
-    if (!isPremium) return;
-
-    // (Optional) ensure permission and future time here if needed
-    const triggerDate = new Date(time);
-    const id = await Notifications.scheduleNotificationAsync({
-      content: {
-        title: 'Task Reminder',
-        body: `Don't forget: ${tasks.find(t => t.id === taskId)?.name || 'a task'}`,
-        sound: type === 'alarm' ? 'default' : null,
-      },
-      trigger: triggerDate,
-    });
-    setTasks(prev =>
-      prev.map(task =>
-        task.id === taskId ? { ...task, reminder: { time, type, notifId: id } } : task
-      )
-    );
-  };
-
+  // Cancel all existing reminder notifications for a task
   const cancelReminder = async (taskId) => {
     const task = tasks.find(t => t.id === taskId);
-    if (task?.reminder?.notifId) {
-      await Notifications.cancelScheduledNotificationAsync(task.reminder.notifId);
+    const ids = task?.reminder?.notifIds || (task?.reminder?.notifId ? [task.reminder.notifId] : []);
+    for (const nid of ids) {
+      try {
+        await Notifications.cancelScheduledNotificationAsync(nid);
+      } catch {}
     }
     setTasks(prev =>
       prev.map(task => (task.id === taskId ? { ...task, reminder: null } : task))
+    );
+  };
+
+  // Build a Date for today at hour:minute, else roll to tomorrow; ensure >= 30s in the future
+  function nextDailyOccurrence(hour, minute) {
+    const now = new Date();
+    const d = new Date(now);
+    d.setSeconds(0, 0);
+    d.setHours(hour, minute, 0, 0);
+    if (d.getTime() - now.getTime() <= 30_000) {
+      d.setDate(d.getDate() + 1);
+    }
+    return d;
+  }
+
+  // Build a Date for the next occurrence of given weekday (0=Sun..6=Sat) at hour:minute; ensure >=30s
+  function nextWeeklyOccurrence(weekdayZeroBased, hour, minute) {
+    const now = new Date();
+    const d = new Date(now);
+    d.setSeconds(0, 0);
+    d.setHours(hour, minute, 0, 0);
+
+    const today = now.getDay(); // 0..6
+    let diff = weekdayZeroBased - today;
+    if (diff < 0) diff += 7;
+    d.setDate(now.getDate() + diff);
+
+    if (d.getTime() - now.getTime() <= 30_000) {
+      d.setDate(d.getDate() + 7);
+    }
+    return d;
+  }
+
+  // Schedule repeating reminders WITHOUT repeats (pre-schedule concrete dates)
+  const scheduleReminder = async (taskId, timeISO) => {
+    if (!isPremium) return;
+
+    const { status } = await Notifications.getPermissionsAsync();
+    if (status !== 'granted') return;
+
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    // Clear any previous schedules for this task
+    await cancelReminder(taskId);
+
+    const picked = new Date(timeISO);
+    const hour = picked.getHours();
+    const minute = picked.getMinutes();
+
+    const notifIds = [];
+    const baseContent = {
+      title: 'Task Reminder',
+      body: `Don't forget: ${task.name || 'a task'}`,
+      sound: 'default',
+    };
+
+    // Helper to schedule at a concrete Date
+    const scheduleAt = async (dateObj) => {
+      const id = await Notifications.scheduleNotificationAsync({
+        content: baseContent,
+        trigger: { type: 'date', date: dateObj }, // ✅ new format
+      });
+      notifIds.push(id);
+    };
+
+    if (!task.days || task.days.length === 0) {
+      // Daily: schedule next 30 days
+      let first = nextDailyOccurrence(hour, minute);
+      for (let i = 0; i < DAILY_HORIZON_DAYS; i++) {
+        const d = new Date(first);
+        d.setDate(first.getDate() + i);
+        await scheduleAt(d);
+      }
+    } else {
+      // Weekly: for each selected weekday, schedule next 12 weeks
+      const weekdayZero = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+      for (const dayName of task.days) {
+        const wzb = weekdayZero[dayName];
+        if (wzb == null) continue;
+        const first = nextWeeklyOccurrence(wzb, hour, minute);
+        for (let i = 0; i < WEEKLY_HORIZON_WEEKS; i++) {
+          const d = new Date(first);
+          d.setDate(first.getDate() + i * 7);
+          await scheduleAt(d);
+        }
+      }
+    }
+
+    setTasks(prev =>
+      prev.map(t =>
+        t.id === taskId ? { ...t, reminder: { time: timeISO, notifIds } } : t
+      )
     );
   };
 
@@ -303,12 +411,11 @@ export default function App() {
     },
   });
 
-  // One-shot upgrade prompt
   useEffect(() => {
     if (showUpgradePrompt) {
       Alert.alert(
         'Upgrade required',
-        'Alarm reminders are only available in the premium version.',
+        'Reminders are only available in the premium version.',
         [{ text: 'OK', onPress: () => setShowUpgradePrompt(false) }]
       );
     }
@@ -370,10 +477,10 @@ export default function App() {
                 if (!reminder) {
                   cancelReminder(id);
                 } else {
-                  if (!isPremium && reminder.type === 'alarm') {
+                  if (!isPremium) {
                     setShowUpgradePrompt(true);
                   } else {
-                    scheduleReminder(id, reminder.time, reminder.type);
+                    scheduleReminder(id, reminder.time);
                   }
                 }
               }}
@@ -431,7 +538,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 16,
     right: 16,
-    bottom: 76, // sits above the footer (adjust if your footer height changes)
+    bottom: 76,
     backgroundColor: '#eee',
     borderRadius: 8,
     padding: 10,

@@ -17,7 +17,8 @@
       "bundleIdentifier": "com.gorlami.forgetmenote",
       "buildNumber": "7",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSUserNotificationUsageDescription": "Allow notifications so Forget Me Note can remind you about tasks."
       }
     },
     "android": {

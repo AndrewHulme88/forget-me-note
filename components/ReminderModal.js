@@ -1,5 +1,4 @@
-// components/ReminderModal.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -13,14 +12,21 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 const PRIMARY = '#4A4A58';
 
 const ReminderModal = ({ visible, onClose, onSetReminder, existingReminder }) => {
-  const [time, setTime] = useState(
-    existingReminder ? new Date(existingReminder.time) : new Date()
-  );
-  const [mode, setMode] = useState(existingReminder?.mode || 'silent');
-  const [showPicker, setShowPicker] = useState(false);
+  // Keep the committed time and a temp time the user can adjust
+  const initial = existingReminder ? new Date(existingReminder.time) : new Date();
+  const [time, setTime] = useState(initial);
+  const [tempTime, setTempTime] = useState(initial);
+
+  // Reset picker time when modal opens with a different existing time
+  useEffect(() => {
+    const t = existingReminder ? new Date(existingReminder.time) : new Date();
+    setTime(t);
+    setTempTime(t);
+  }, [existingReminder, visible]);
 
   const handleConfirm = () => {
-    onSetReminder({ time: time.toISOString(), mode });
+    setTime(tempTime);
+    onSetReminder({ time: tempTime.toISOString() });
     onClose();
   };
 
@@ -35,35 +41,22 @@ const ReminderModal = ({ visible, onClose, onSetReminder, existingReminder }) =>
         <View style={styles.card}>
           <Text style={styles.title}>Set Reminder</Text>
 
-          <Pressable onPress={() => setShowPicker(true)} style={styles.timeButton}>
-            <Text style={styles.timeText}>{time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
-          </Pressable>
-
-          {showPicker && (
-            <DateTimePicker
-              value={time}
-              mode="time"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={(e, selected) => {
-                setShowPicker(false);
-                if (selected) setTime(selected);
-              }}
-            />
-          )}
-
-          <View style={styles.modeRow}>
-            {['alarm', 'silent'].map((m) => (
-              <Pressable
-                key={m}
-                onPress={() => setMode(m)}
-                style={[styles.modeButton, mode === m && styles.modeSelected]}
-              >
-                <Text style={[styles.modeText, mode === m && styles.modeSelectedText]}>
-                  {m === 'alarm' ? 'Alarm' : 'Silent'}
-                </Text>
-              </Pressable>
-            ))}
+          {/* Display current temp time */}
+          <View style={styles.timeButton}>
+            <Text style={styles.timeText}>
+              {tempTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </Text>
           </View>
+
+          {/* Inline picker: user scrolls freely; we commit only on Set */}
+          <DateTimePicker
+            value={tempTime}
+            mode="time"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={(_, selected) => {
+              if (selected) setTempTime(selected);
+            }}
+          />
 
           <View style={styles.actions}>
             <Pressable onPress={handleRemove} style={styles.removeButton}>
@@ -103,39 +96,17 @@ const styles = StyleSheet.create({
     padding: 12,
     backgroundColor: '#eee',
     borderRadius: 8,
-    marginBottom: 16,
+    marginBottom: 12,
     alignItems: 'center',
   },
   timeText: {
     fontSize: 18,
   },
-  modeRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginBottom: 20,
-    gap: 12,
-  },
-  modeButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: PRIMARY,
-  },
-  modeSelected: {
-    backgroundColor: PRIMARY,
-  },
-  modeText: {
-    color: PRIMARY,
-    fontWeight: '600',
-  },
-  modeSelectedText: {
-    color: '#fff',
-  },
   actions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     gap: 10,
+    marginTop: 12,
   },
   confirmButton: {
     backgroundColor: PRIMARY,
