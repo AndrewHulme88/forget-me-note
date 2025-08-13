@@ -349,11 +349,8 @@ export default function App() {
     setTasks(prev => prev.filter(task => task.id !== id));
   };
 
+  // ⬇️ Unlimited tasks in free tier
   const addTask = (taskName, selectedDays) => {
-    if (!isPremium && tasks.length >= 10) {
-      Alert.alert('Upgrade required', 'Free version is limited to 10 tasks.');
-      return;
-    }
     const trimmed = taskName.trim();
     if (!trimmed) return;
     setTasks(prev => [
