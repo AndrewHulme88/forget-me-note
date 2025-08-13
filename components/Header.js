@@ -1,74 +1,91 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+
+const PRIMARY = '#4A4A58';
 
 const Header = ({ selectedDate, atStart, atEnd, darkMode, animateSlide }) => {
-  const today = new Date();
-  const diffDays = Math.floor(
-    (selectedDate.setHours(0, 0, 0, 0) - today.setHours(0, 0, 0, 0)) / 86400000
-  );
+  const { labelDate, subheading } = useMemo(() => {
+    const startOfDay = (d) => {
+      const c = new Date(d);
+      c.setHours(0, 0, 0, 0);
+      return c;
+    };
+    const today = startOfDay(new Date());
+    const sel = startOfDay(selectedDate);
+    const diffDays = Math.floor((sel - today) / 86400000);
 
-  let subheading = '';
-  if (diffDays === 0) subheading = 'Today';
-  else if (diffDays < 0) subheading = 'Last Week';
-  else subheading = 'Next Week';
+    let sub = 'Today';
+    if (diffDays < 0) sub = 'Last Week';
+    if (diffDays > 0) sub = 'Next Week';
+
+    return { labelDate: sel.toDateString(), subheading: sub };
+  }, [selectedDate]);
+
+  const iconColor = darkMode ? '#fff' : PRIMARY;
 
   return (
     <View style={styles.container}>
       <View style={styles.navRow}>
-        <View style={{ width: 32 }}>
-          {!atStart && (
-            <Pressable onPress={() => animateSlide(-1)}>
-              <Text style={[styles.navText, darkMode && styles.darkText]}>←</Text>
-            </Pressable>
-          )}
-        </View>
-        <Text style={[styles.dateText, darkMode && styles.darkText]}>
-          {new Date(selectedDate).toDateString()}
+        {/* Left arrow (space always reserved) */}
+        <Pressable
+          onPress={() => animateSlide(-1)}
+          disabled={atStart}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Previous day"
+          style={[styles.arrowBox, !atStart ? null : styles.invisible]}
+        >
+          <Ionicons name="chevron-back" size={24} color={iconColor} />
+        </Pressable>
+
+        {/* Center date */}
+        <Text style={[styles.dateText, darkMode && styles.darkText]} numberOfLines={1}>
+          {labelDate}
         </Text>
-        <View style={{ width: -32 }}>
-          {!atEnd && (
-            <Pressable onPress={() => animateSlide(1)}>
-              <Text style={[styles.navText, darkMode && styles.darkText]}>→</Text>
-            </Pressable>
-          )}
-        </View>
+
+        {/* Right arrow (space always reserved) */}
+        <Pressable
+          onPress={() => animateSlide(1)}
+          disabled={atEnd}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Next day"
+          style={[styles.arrowBox, styles.rightBox, !atEnd ? null : styles.invisible]}
+        >
+          <Ionicons name="chevron-forward" size={24} color={iconColor} />
+        </Pressable>
       </View>
-      <Text style={[styles.subheading, darkMode && styles.darkText]}>
-        {subheading}
-      </Text>
+
+      <Text style={[styles.subheading, darkMode && styles.subheadingDark]}>{subheading}</Text>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    marginBottom: 16,
-  },
+  container: { alignItems: 'center', marginBottom: 16 },
   navRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     width: '100%',
+    paddingHorizontal: 16, // symmetric edge padding so arrows aren’t flush
   },
-  navText: {
-    fontSize: 24,
-    paddingHorizontal: 10,
-    color: '#4A4A58',
+  arrowBox: {
+    width: 44,              // roomy touch target, reserves space
+    alignItems: 'flex-start',
   },
-  darkText: {
-    color: '#fff',
-  },
+  rightBox: { alignItems: 'flex-end' },
+  invisible: { opacity: 0 }, // keeps layout space without showing
   dateText: {
+    flex: 1,
+    textAlign: 'center',
     fontSize: 16,
     fontWeight: '500',
     color: '#333',
   },
-  subheading: {
-    fontSize: 14,
-    color: '#888',
-    marginTop: 4,
-  },
+  darkText: { color: '#fff' },
+  subheading: { fontSize: 14, color: '#888', marginTop: 4 },
+  subheadingDark: { color: '#bbb' },
 });
 
 export default Header;

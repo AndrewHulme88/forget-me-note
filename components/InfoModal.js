@@ -1,15 +1,29 @@
 import React from 'react';
-import { Modal, View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
+import { Modal, View, Text, Pressable, StyleSheet, ScrollView, Dimensions } from 'react-native';
 
 const PRIMARY = '#4A4A58';
+const MAX_BODY = Math.min(420, Math.round(Dimensions.get('window').height * 0.6));
 
 const InfoModal = ({ visible, onClose, darkMode }) => {
   return (
-    <Modal visible={visible} animationType="slide" transparent>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent
+      statusBarTranslucent
+      onRequestClose={onClose} // Android back
+    >
       <View style={styles.overlay}>
         <View style={[styles.card, darkMode && styles.darkCard]}>
-          <Text style={[styles.title, darkMode && { color: '#fff' }]}>How to use Forget Me Note</Text>
-          <ScrollView style={{ maxHeight: 360 }} showsVerticalScrollIndicator={false}>
+          <Text style={[styles.title, darkMode && { color: '#fff' }]}>
+            How to use Forget Me Note
+          </Text>
+
+          <ScrollView
+            style={{ maxHeight: MAX_BODY }}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 4 }}
+          >
             <Text style={[styles.point, darkMode && styles.darkText]}>
               • Swipe left/right (or use the arrows) to move between days.
             </Text>
@@ -33,7 +47,12 @@ const InfoModal = ({ visible, onClose, darkMode }) => {
             </Text>
           </ScrollView>
 
-          <Pressable onPress={onClose} style={styles.button}>
+          <Pressable
+            onPress={onClose}
+            style={styles.button}
+            accessibilityRole="button"
+            accessibilityLabel="Close info"
+          >
             <Text style={styles.buttonText}>Got it</Text>
           </Pressable>
         </View>

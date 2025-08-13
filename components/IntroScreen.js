@@ -1,34 +1,38 @@
-import React, { useEffect } from 'react';
-import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
+import React from 'react';
+import { View, Text, Pressable, StyleSheet, Platform, Alert } from 'react-native';
 import * as Notifications from 'expo-notifications';
 
-const IntroScreen = ({ onContinue, darkMode }) => {
-  useEffect(() => {
-    const requestPermissions = async () => {
-      const { status } = await Notifications.getPermissionsAsync();
-      if (status !== 'granted') {
-        await Notifications.requestPermissionsAsync({
-          ios: {
-            allowAlert: true,
-            allowSound: true,
-            allowBadge: false,
-          },
-        });
-      }
-    };
+const PRIMARY = '#4A4A58';
 
-    requestPermissions();
-  }, []);
+const IntroScreen = ({ onContinue, darkMode }) => {
+  const handleContinue = async () => {
+    try {
+      if (Platform.OS === 'ios') {
+        const { status: existing, canAskAgain } = await Notifications.getPermissionsAsync();
+        if (existing !== 'granted' && canAskAgain) {
+          await Notifications.requestPermissionsAsync({
+            ios: { allowAlert: true, allowSound: true, allowBadge: true },
+          });
+        }
+        // If still not granted, we still proceed—app works without alerts
+      }
+    } catch {
+      // Non-fatal: proceed
+    } finally {
+      onContinue();
+    }
+  };
 
   return (
     <View style={[styles.container, darkMode && styles.darkContainer]}>
       <Text style={[styles.title, darkMode && styles.darkText]}>Welcome to Forget Me Note</Text>
       <Text style={[styles.description, darkMode && styles.darkText]}>
-        - Swipe through days{'\n'}
-        - Track and check off tasks{'\n'}
-        - Set reminders or alarms
+        • Swipe through days{'\n'}
+        • Track and check off tasks{'\n'}
+        • Set reminders for tasks
       </Text>
-      <Pressable onPress={onContinue} style={styles.button}>
+
+      <Pressable onPress={handleContinue} style={styles.button} accessibilityRole="button">
         <Text style={styles.buttonText}>Get Started</Text>
       </Pressable>
     </View>
@@ -52,9 +56,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     color: '#333',
   },
-  darkText: {
-    color: '#fff',
-  },
+  darkText: { color: '#fff' },
   description: {
     fontSize: 16,
     lineHeight: 24,
@@ -63,7 +65,7 @@ const styles = StyleSheet.create({
     color: '#555',
   },
   button: {
-    backgroundColor: '#4A4A58',
+    backgroundColor: PRIMARY,
     paddingVertical: 12,
     paddingHorizontal: 32,
     borderRadius: 6,

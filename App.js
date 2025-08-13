@@ -24,10 +24,6 @@ import IntroScreen from './components/IntroScreen';
 import InfoModal from './components/InfoModal';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const PREMIUM_ID = 'premium_upgrade';
-
-// Expo/iOS weekday mapping: Sun=1 ... Sat=7 (used earlier; left for reference)
-const WEEKDAY_NUM = { Sun: 1, Mon: 2, Tue: 3, Wed: 4, Thu: 5, Fri: 6, Sat: 7 };
 
 // How far ahead to schedule (avoid iOS repeating quirks)
 const DAILY_HORIZON_DAYS = 30;   // schedule next 30 daily occurrences
@@ -39,8 +35,8 @@ export default function App() {
   const [darkMode, setDarkMode] = useState(false);
   const [showAddScreen, setShowAddScreen] = useState(false);
 
-  // Dev-only premium override: premium is on in debug/run:ios
-  const [isPremium, setIsPremium] = useState(__DEV__ ? true : false);
+  // Production: start false; real IAP controls premium.
+  const [isPremium, setIsPremium] = useState(false);
 
   const [showIntro, setShowIntro] = useState(false);
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
@@ -81,7 +77,7 @@ export default function App() {
       const json = await AsyncStorage.getItem('tasks');
       const premiumStatus = await AsyncStorage.getItem('isPremium');
       if (json) setTasks(JSON.parse(json));
-      if (!__DEV__ && premiumStatus === 'true') setIsPremium(true);
+      if (premiumStatus === 'true') setIsPremium(true);
     };
     load();
   }, []);
@@ -131,9 +127,8 @@ export default function App() {
     })();
   }, []);
 
-  // In-App Purchases: connect/restore/listen (skip entirely in dev)
+  // In-App Purchases: connect/restore/listen
   useEffect(() => {
-    if (__DEV__) return;
     let mounted = true;
 
     const initIAP = async () => {
@@ -145,7 +140,7 @@ export default function App() {
 
         const hist = await InAppPurchases.getPurchaseHistoryAsync();
         if (mounted && hist.responseCode === InAppPurchases.IAPResponseCode.OK) {
-          const hasPremium = hist.results?.some(p => p.productId === PREMIUM_ID);
+          const hasPremium = hist.results?.some(p => p.productId === 'premium_upgrade');
           if (hasPremium) {
             setIsPremium(true);
             await AsyncStorage.setItem('isPremium', 'true');
@@ -161,7 +156,7 @@ export default function App() {
           }
           for (const purchase of results || []) {
             try {
-              if (purchase.productId === PREMIUM_ID) {
+              if (purchase.productId === 'premium_upgrade') {
                 setIsPremium(true);
                 await AsyncStorage.setItem('isPremium', 'true');
               }
@@ -181,24 +176,21 @@ export default function App() {
     initIAP();
     return () => {
       mounted = false;
+      // Optionally: InAppPurchases.disconnectAsync().catch(() => {});
     };
   }, []);
 
   const handleUpgradePurchase = async () => {
-    if (__DEV__) {
-      Alert.alert('Dev mode', 'Premium is unlocked in dev builds.');
-      return;
-    }
     if (purchasingRef.current) return;
     purchasingRef.current = true;
     try {
-      const { responseCode, results } = await InAppPurchases.getProductsAsync([PREMIUM_ID]);
+      const { responseCode, results } = await InAppPurchases.getProductsAsync(['premium_upgrade']);
       if (responseCode !== InAppPurchases.IAPResponseCode.OK || !results?.length) {
         Alert.alert('Product not found', 'Check product ID and App Store Connect status.');
         purchasingRef.current = false;
         return;
       }
-      const res = await InAppPurchases.purchaseItemAsync(PREMIUM_ID);
+      const res = await InAppPurchases.purchaseItemAsync('premium_upgrade');
       if (res?.responseCode === InAppPurchases.IAPResponseCode.OK) {
         setIsPremium(true);
         await AsyncStorage.setItem('isPremium', 'true');
@@ -210,16 +202,12 @@ export default function App() {
   };
 
   const handleRestore = async () => {
-    if (__DEV__) {
-      Alert.alert('Dev mode', 'Premium is unlocked in dev builds.');
-      return;
-    }
     if (restoringRef.current) return;
     restoringRef.current = true;
     try {
       const { responseCode, results } = await InAppPurchases.getPurchaseHistoryAsync();
       if (responseCode === InAppPurchases.IAPResponseCode.OK) {
-        const hasPremium = results?.some(p => p.productId === PREMIUM_ID);
+        const hasPremium = results?.some(p => p.productId === 'premium_upgrade');
         if (hasPremium) {
           setIsPremium(true);
           await AsyncStorage.setItem('isPremium', 'true');
@@ -309,7 +297,7 @@ export default function App() {
     const scheduleAt = async (dateObj) => {
       const id = await Notifications.scheduleNotificationAsync({
         content: baseContent,
-        trigger: { type: 'date', date: dateObj }, // ✅ new format
+        trigger: { type: 'date', date: dateObj }, // new format
       });
       notifIds.push(id);
     };

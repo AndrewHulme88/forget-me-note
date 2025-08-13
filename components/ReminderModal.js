@@ -35,22 +35,30 @@ const ReminderModal = ({ visible, onClose, onSetReminder, existingReminder }) =>
     onClose();
   };
 
+  // Guard against invalid Date -> CoreGraphics NaN warnings
+  const safeTempTime =
+    Number.isFinite(tempTime?.getTime?.()) ? tempTime : new Date();
+
   return (
-    <Modal visible={visible} transparent animationType="slide">
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose} // Android back button
+    >
       <View style={styles.overlay}>
         <View style={styles.card}>
           <Text style={styles.title}>Set Reminder</Text>
 
-          {/* Display current temp time */}
           <View style={styles.timeButton}>
             <Text style={styles.timeText}>
-              {tempTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              {safeTempTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </Text>
           </View>
 
           {/* Inline picker: user scrolls freely; we commit only on Set */}
           <DateTimePicker
-            value={tempTime}
+            value={safeTempTime}
             mode="time"
             display={Platform.OS === 'ios' ? 'spinner' : 'default'}
             onChange={(_, selected) => {
@@ -59,13 +67,28 @@ const ReminderModal = ({ visible, onClose, onSetReminder, existingReminder }) =>
           />
 
           <View style={styles.actions}>
-            <Pressable onPress={handleRemove} style={styles.removeButton}>
+            <Pressable
+              onPress={handleRemove}
+              style={styles.removeButton}
+              accessibilityRole="button"
+              accessibilityLabel="Remove reminder"
+            >
               <Text style={styles.buttonText}>Remove</Text>
             </Pressable>
-            <Pressable onPress={onClose} style={styles.cancelButton}>
+            <Pressable
+              onPress={onClose}
+              style={[styles.cancelButton, { marginLeft: 10 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel"
+            >
               <Text style={styles.buttonText}>Cancel</Text>
             </Pressable>
-            <Pressable onPress={handleConfirm} style={styles.confirmButton}>
+            <Pressable
+              onPress={handleConfirm}
+              style={[styles.confirmButton, { marginLeft: 10 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Set reminder"
+            >
               <Text style={styles.buttonText}>Set</Text>
             </Pressable>
           </View>
@@ -105,7 +128,6 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: 10,
     marginTop: 12,
   },
   confirmButton: {

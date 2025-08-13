@@ -12,10 +12,10 @@ const TaskItem = ({
   onDelete,
   disabled,
   darkMode,
-  onSetReminder,      // expects (taskId, reminderOrNull)
+  onSetReminder,      // (taskId, reminderOrNull)
   isPremium,
   showUpgradePrompt,
-  hasReminder,        // optional: if App.js passes this, we use it; otherwise derive from task.reminder
+  hasReminder,        // optional; else derived from task.reminder
 }) => {
   const [showReminder, setShowReminder] = useState(false);
 
@@ -37,20 +37,40 @@ const TaskItem = ({
     <View style={[styles.item, darkMode && styles.darkItem]}>
       <Pressable
         onPress={() => !disabled && onToggle(task.id)}
-        style={[styles.checkbox, task.done && styles.checked]}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel={task.done ? 'Mark task not done' : 'Mark task done'}
+        accessibilityState={{ disabled, checked: !!task.done }}
+        style={[styles.checkbox, task.done && styles.checked, disabled && styles.checkboxDisabled]}
       >
         {task.done && <Feather name="check" size={16} color="#fff" />}
       </Pressable>
 
-      <Text style={[styles.text, task.done && styles.textDone, darkMode && styles.darkText]}>
+      <Text
+        style={[styles.text, task.done && styles.textDone, darkMode && styles.darkText]}
+        numberOfLines={2}
+        ellipsizeMode="tail"
+      >
         {task.name}
       </Text>
 
       <View style={styles.actions}>
-        <Pressable onPress={handleClockPress} style={styles.iconButton} accessibilityLabel={derivedHasReminder ? 'Edit reminder (set)' : 'Set reminder'}>
+        <Pressable
+          onPress={handleClockPress}
+          hitSlop={8}
+          style={styles.iconButton}
+          accessibilityRole="button"
+          accessibilityLabel={derivedHasReminder ? 'Edit reminder (set)' : 'Set reminder'}
+        >
           <Feather name="clock" size={18} color={iconColor} />
         </Pressable>
-        <Pressable onPress={() => onDelete(task.id)} style={styles.iconButton} accessibilityLabel="Delete task">
+        <Pressable
+          onPress={() => onDelete(task.id)}
+          hitSlop={8}
+          style={[styles.iconButton, styles.iconButtonRight]}
+          accessibilityRole="button"
+          accessibilityLabel="Delete task"
+        >
           <Feather name="trash-2" size={18} color="#ff5c5c" />
         </Pressable>
       </View>
@@ -61,8 +81,7 @@ const TaskItem = ({
           onClose={() => setShowReminder(false)}
           existingReminder={task.reminder}
           onSetReminder={(reminder) => {
-            // reminder is either { time: ISOString } or null
-            onSetReminder(task.id, reminder);
+            onSetReminder(task.id, reminder); // { time } or null
             setShowReminder(false);
           }}
         />
@@ -80,9 +99,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: '#ddd',
   },
-  darkItem: {
-    borderColor: '#444',
-  },
+  darkItem: { borderColor: '#444' },
+
   checkbox: {
     width: 24,
     height: 24,
@@ -93,29 +111,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  checkboxDisabled: { opacity: 0.5 },
   checked: {
     backgroundColor: PRIMARY,
     borderColor: PRIMARY,
   },
-  text: {
-    flex: 1,
-    fontSize: 16,
-    color: '#333',
-  },
-  darkText: {
-    color: '#eee',
-  },
-  textDone: {
-    textDecorationLine: 'line-through',
-    color: '#888',
-  },
+
+  text: { flex: 1, fontSize: 16, color: '#333' },
+  darkText: { color: '#eee' },
+  textDone: { textDecorationLine: 'line-through', color: '#888' },
+
   actions: {
     flexDirection: 'row',
-    gap: 12,
+    alignItems: 'center',
+    marginLeft: 8,
   },
-  iconButton: {
-    padding: 4,
-  },
+  iconButton: { padding: 4 },
+  iconButtonRight: { marginLeft: 12 }, // replaces 'gap'
 });
 
 export default TaskItem;

@@ -12,21 +12,25 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+    "assetBundlePatterns": ["**/*"],
+    "plugins": ["expo-notifications"],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.gorlami.forgetmenote",
-      "buildNumber": "7",
+      "buildNumber": "17",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSUserNotificationUsageDescription": "Allow notifications so Forget Me Note can remind you about tasks."
       }
     },
     "android": {
+      "package": "com.gorlami.forgetmenote",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "permissions": ["POST_NOTIFICATIONS"]
     },
     "web": {
       "favicon": "./assets/favicon.png"

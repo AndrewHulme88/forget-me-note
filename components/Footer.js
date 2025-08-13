@@ -2,37 +2,75 @@ import React from 'react';
 import { View, Pressable, StyleSheet, Text } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 
-const Footer = ({ darkMode, setDarkMode, resetToToday, onAddPress, onInfoPress, isToday, isPremium }) => {
+const PRIMARY = '#4A4A58';
+const MUTED = '#aaa';
+
+const Footer = ({
+  darkMode,
+  setDarkMode,
+  resetToToday,
+  onAddPress,
+  onInfoPress,
+  isToday,
+  isPremium,
+}) => {
+  const mainIcon = darkMode ? '#fff' : PRIMARY;
+  const infoIcon = darkMode ? '#ddd' : '#777';
+
   return (
     <View style={styles.container}>
-      <Pressable onPress={isToday ? null : resetToToday} disabled={isToday}>
-        <Text style={[styles.buttonText, isToday && styles.disabled]}>Today</Text>
+      {/* Today */}
+      <Pressable
+        onPress={isToday ? undefined : resetToToday}
+        disabled={isToday}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel="Go to today"
+        accessibilityState={{ disabled: isToday }}
+      >
+        <Text style={[styles.buttonText, isToday && styles.disabledText]}>Today</Text>
       </Pressable>
 
-      <Pressable onPress={onAddPress}>
-        <Feather name="plus-circle" size={28} color="#4A4A58" />
+      {/* Add task */}
+      <Pressable
+        onPress={onAddPress}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel="Add task"
+        style={styles.iconButton}
+      >
+        <Feather name="plus-circle" size={28} color={mainIcon} />
       </Pressable>
 
+      {/* Dark mode (premium only) */}
       <View style={styles.darkModeWrapper}>
         <Pressable
-          onPress={isPremium ? () => setDarkMode(prev => !prev) : null}
+          onPress={isPremium ? () => setDarkMode(prev => !prev) : undefined}
           disabled={!isPremium}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Toggle dark mode"
+          accessibilityState={{ disabled: !isPremium, checked: darkMode }}
           style={styles.darkModeButton}
         >
           <Feather
             name={darkMode ? 'sun' : 'moon'}
             size={24}
-            color={isPremium ? '#4A4A58' : '#aaa'}
+            color={isPremium ? mainIcon : MUTED}
           />
         </Pressable>
         {!isPremium && <Text style={styles.premiumLabel}>Premium</Text>}
       </View>
 
+      {/* Info */}
       <Pressable
         onPress={onInfoPress}
-        style={[styles.button, darkMode && styles.darkButton]}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel="Info"
+        style={styles.iconButton}
       >
-        <Ionicons name="information-circle" size={24} color="#aaa" />
+        <Ionicons name="information-circle" size={24} color={infoIcon} />
       </Pressable>
     </View>
   );
@@ -50,10 +88,13 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     fontSize: 16,
-    color: '#4A4A58',
+    color: PRIMARY,
   },
-  disabled: {
+  disabledText: {
     color: '#ccc',
+  },
+  iconButton: {
+    padding: 4,
   },
   darkModeWrapper: {
     alignItems: 'center',
@@ -69,97 +110,3 @@ const styles = StyleSheet.create({
 });
 
 export default Footer;
-
-
-
-
-// import React from 'react';
-// import { View, Pressable, Text, StyleSheet } from 'react-native';
-// import { Ionicons } from '@expo/vector-icons';
-
-// export default function Footer({
-//   darkMode,
-//   setDarkMode,
-//   resetToToday,
-//   onAddPress,
-//   onInfoPress,
-//   isToday,
-//   isPremium,
-// }) {
-//   return (
-//     <View style={[styles.footer, darkMode && styles.darkFooter]}>
-//       {/* Today button */}
-//       <Pressable
-//         onPress={resetToToday}
-//         disabled={isToday}
-//         style={[
-//           styles.button,
-//           isToday && styles.disabledButton,
-//           darkMode && styles.darkButton,
-//         ]}
-//       >
-//         <Text style={styles.buttonText}>Today</Text>
-//       </Pressable>
-
-//       {/* Add Task button */}
-//       <Pressable
-//         onPress={onAddPress}
-//         style={[styles.button, darkMode && styles.darkButton]}
-//       >
-//         <Ionicons name="add" size={24} color="#fff" />
-//       </Pressable>
-
-//       {/* Dark mode toggle (only for premium) */}
-//       <Pressable
-//         onPress={() => setDarkMode((prev) => !prev)}
-//         style={[styles.button, darkMode && styles.darkButton]}
-//       >
-//         <Ionicons
-//           name={darkMode ? 'sunny' : 'moon'}
-//           size={22}
-//           color="#fff"
-//         />
-//       </Pressable>
-
-//       {/* Info button */}
-//       <Pressable
-//         onPress={onInfoPress}
-//         style={[styles.button, darkMode && styles.darkButton]}
-//       >
-//         <Ionicons name="information-circle" size={24} color="#fff" />
-//       </Pressable>
-//     </View>
-//   );
-// }
-
-// const styles = StyleSheet.create({
-//   footer: {
-//     position: 'absolute',
-//     bottom: 0,
-//     left: 0,
-//     right: 0,
-//     flexDirection: 'row',
-//     justifyContent: 'space-evenly',
-//     paddingVertical: 12,
-//     backgroundColor: '#4A4A58',
-//   },
-//   darkFooter: {
-//     backgroundColor: '#2c2c34',
-//   },
-//   button: {
-//     backgroundColor: '#4A4A58',
-//     paddingHorizontal: 16,
-//     paddingVertical: 10,
-//     borderRadius: 8,
-//   },
-//   darkButton: {
-//     backgroundColor: '#3a3a44',
-//   },
-//   disabledButton: {
-//     opacity: 0.5,
-//   },
-//   buttonText: {
-//     color: '#fff',
-//     fontSize: 14,
-//   },
-// });

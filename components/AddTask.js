@@ -78,7 +78,7 @@ const AddTask = ({
             <Pressable onPress={onCancel} style={[styles.button, styles.cancel]}>
               <Text style={styles.buttonText}>Cancel</Text>
             </Pressable>
-            <Pressable onPress={handleAdd} style={[styles.button, styles.confirm]}>
+            <Pressable onPress={handleAdd} style={[styles.button, styles.confirm, { marginLeft: 12 }]}>
               <Text style={styles.buttonText}>Add</Text>
             </Pressable>
           </View>
@@ -149,7 +149,6 @@ const styles = StyleSheet.create({
   buttonRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: 12,
   },
   button: {
     paddingVertical: 10,

@@ -19,6 +19,15 @@ const TaskInput = ({
   addTask,
   darkMode,
 }) => {
+  const trimmed = newTask.trim();
+  const canAdd = trimmed.length > 0;
+
+  const toggleDay = (day) => {
+    setSelectedDays((prev) =>
+      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
+    );
+  };
+
   return (
     <View style={[styles.card, darkMode && styles.darkCard]}>
       <View style={styles.inputRow}>
@@ -28,40 +37,48 @@ const TaskInput = ({
           onChangeText={setNewTask}
           style={[styles.input, darkMode && styles.darkInput]}
           placeholderTextColor={darkMode ? '#ccc' : '#888'}
+          autoCapitalize="sentences"
+          autoCorrect
+          returnKeyType="done"
+          onSubmitEditing={() => { if (canAdd) addTask(); }}
+          blurOnSubmit
+          maxLength={120}
         />
-        <Pressable style={styles.button} onPress={addTask}>
+        <Pressable
+          style={[styles.button, !canAdd && styles.buttonDisabled]}
+          onPress={() => canAdd && addTask()}
+          disabled={!canAdd}
+          accessibilityRole="button"
+          accessibilityLabel="Add task"
+        >
           <Text style={styles.buttonText}>Add</Text>
         </Pressable>
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        <View style={styles.daysRow}>
-          {DAYS.map((day) => {
-            const selected = selectedDays.includes(day);
-            return (
-              <Pressable
-                key={day}
-                onPress={() =>
-                  setSelectedDays((prev) =>
-                    prev.includes(day)
-                      ? prev.filter((d) => d !== day)
-                      : [...prev, day]
-                  )
-                }
-                style={[styles.dayButton, selected && styles.dayButtonSelected]}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.daysRow}>
+        {DAYS.map((day) => {
+          const selected = selectedDays.includes(day);
+          return (
+            <Pressable
+              key={day}
+              onPress={() => toggleDay(day)}
+              style={[styles.dayButton, selected && styles.dayButtonSelected]}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityState={{ selected }}
+              accessibilityLabel={`Repeat on ${day}`}
+            >
+              <Text
+                style={[
+                  selected ? styles.dayTextSelected : styles.dayText,
+                  !selected && darkMode && { color: '#fff' },
+                ]}
               >
-                <Text
-                  style={[
-                    selected ? styles.dayTextSelected : styles.dayText,
-                    !selected && darkMode && { color: '#fff' },
-                  ]}
-                >
-                  {day}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+                {day}
+              </Text>
+            </Pressable>
+          );
+        })}
       </ScrollView>
     </View>
   );
@@ -79,62 +96,29 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  darkCard: {
-    backgroundColor: '#2a2a2d',
-  },
-  inputRow: {
-    flexDirection: 'row',
-    marginBottom: 12,
-    alignItems: 'center',
-  },
+  darkCard: { backgroundColor: '#2a2a2d' },
+  inputRow: { flexDirection: 'row', marginBottom: 12, alignItems: 'center' },
   input: {
     flex: 1,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 6,
-    padding: 10,
-    fontSize: 16,
-    backgroundColor: '#fff',
+    borderWidth: 1, borderColor: '#ccc',
+    borderRadius: 6, padding: 10, fontSize: 16, backgroundColor: '#fff',
   },
-  darkInput: {
-    backgroundColor: '#444',
-    color: '#fff',
-    borderColor: '#666',
-  },
+  darkInput: { backgroundColor: '#444', color: '#fff', borderColor: '#666' },
   button: {
-    marginLeft: 10,
-    backgroundColor: PRIMARY,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 6,
+    marginLeft: 10, backgroundColor: PRIMARY,
+    paddingHorizontal: 16, paddingVertical: 10, borderRadius: 6,
   },
-  buttonText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  daysRow: {
-    flexDirection: 'row',
-    flexWrap: 'nowrap',
-  },
+  buttonDisabled: { opacity: 0.5 },
+  buttonText: { color: '#fff', fontWeight: '600' },
+  daysRow: { flexDirection: 'row' },
   dayButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 6,
-    marginRight: 6,
+    paddingHorizontal: 10, paddingVertical: 6,
+    borderWidth: 1, borderColor: '#ccc',
+    borderRadius: 6, marginRight: 6,
   },
-  dayButtonSelected: {
-    backgroundColor: PRIMARY,
-    borderColor: PRIMARY,
-  },
-  dayText: {
-    color: '#333',
-  },
-  dayTextSelected: {
-    color: '#fff',
-    fontWeight: '600',
-  },
+  dayButtonSelected: { backgroundColor: PRIMARY, borderColor: PRIMARY },
+  dayText: { color: '#333' },
+  dayTextSelected: { color: '#fff', fontWeight: '600' },
 });
 
 export default TaskInput;
