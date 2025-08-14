@@ -19,8 +19,10 @@
       "bundleIdentifier": "com.gorlami.forgetmenote",
       "buildNumber": "18",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false,
-        "NSUserNotificationUsageDescription": "Allow notifications so Recollecto can remind you about tasks."
+          "CFBundleDisplayName": "Recollecto",
+          "CFBundleName": "Recollecto",
+          "ITSAppUsesNonExemptEncryption": false,
+          "NSUserNotificationUsageDescription": "Allow notifications so Recollecto can remind you about tasks."
       }
     },
     "android": {

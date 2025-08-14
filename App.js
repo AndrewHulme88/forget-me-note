@@ -28,6 +28,7 @@ const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 // How far ahead to schedule 
 const DAILY_HORIZON_DAYS = 30;   // schedule next 30 daily occurrences
 const WEEKLY_HORIZON_WEEKS = 12; // schedule next 12 occurrences per selected weekday
+const PREMIUM_ID = 'premium_upgrade';
 
 export default function App() {
   const [tasks, setTasks] = useState([]);
@@ -127,10 +128,43 @@ export default function App() {
     })();
   }, []);
 
-  // In App Purchases: connect/restore/listen
+  // In App Purchases: register listener early, then connect & hydrate
   useEffect(() => {
     let mounted = true;
 
+    // 1) Register purchase listener EARLY so we never miss the success event
+    InAppPurchases.setPurchaseListener(async ({ responseCode, results, errorCode }) => {
+      if (!mounted) return;
+
+      if (responseCode !== InAppPurchases.IAPResponseCode.OK) {
+        console.warn('Purchase failed:', errorCode);
+        purchasingRef.current = false;
+        restoringRef.current = false;
+        return;
+      }
+
+      for (const purchase of results || []) {
+        try {
+          if (
+            purchase.productId === PREMIUM_ID &&
+            // iOS: transactionReceipt present; Android: handle when not acknowledged
+            (purchase.transactionReceipt || purchase.acknowledged === false || purchase.acknowledged === undefined)
+          ) {
+            setIsPremium(true);
+            await AsyncStorage.setItem('isPremium', 'true');
+            // Remove the banner right away by flipping state; finish/acknowledge after
+            await InAppPurchases.finishTransactionAsync(purchase, false);
+          }
+        } catch (e) {
+          console.warn('finishTransaction error', e);
+        }
+      }
+
+      purchasingRef.current = false;
+      restoringRef.current = false;
+    });
+
+    // 2) Connect and hydrate from history
     const initIAP = async () => {
       try {
         if (!iapConnectedRef.current) {
@@ -139,43 +173,26 @@ export default function App() {
         }
 
         const hist = await InAppPurchases.getPurchaseHistoryAsync();
-        if (mounted && hist.responseCode === InAppPurchases.IAPResponseCode.OK) {
-          const hasPremium = hist.results?.some(p => p.productId === 'premium_upgrade');
+        if (!mounted) return;
+
+        if (hist.responseCode === InAppPurchases.IAPResponseCode.OK) {
+          const hasPremium = hist.results?.some(p => p.productId === PREMIUM_ID);
           if (hasPremium) {
             setIsPremium(true);
             await AsyncStorage.setItem('isPremium', 'true');
           }
         }
-
-        InAppPurchases.setPurchaseListener(async ({ responseCode, results, errorCode }) => {
-          if (responseCode !== InAppPurchases.IAPResponseCode.OK) {
-            console.warn('Purchase failed:', errorCode);
-            purchasingRef.current = false;
-            restoringRef.current = false;
-            return;
-          }
-          for (const purchase of results || []) {
-            try {
-              if (purchase.productId === 'premium_upgrade') {
-                setIsPremium(true);
-                await AsyncStorage.setItem('isPremium', 'true');
-              }
-              await InAppPurchases.finishTransactionAsync(purchase, false);
-            } catch (e) {
-              console.warn('finishTransaction error', e);
-            }
-          }
-          purchasingRef.current = false;
-          restoringRef.current = false;
-        });
       } catch (e) {
         console.warn('IAP init error', e?.message || e);
       }
     };
 
     initIAP();
+
     return () => {
       mounted = false;
+      // Optional: keep connection for app lifetime; disconnect on unmount if desired
+      // InAppPurchases.disconnectAsync().catch(() => {});
     };
   }, []);
 
@@ -183,17 +200,29 @@ export default function App() {
     if (purchasingRef.current) return;
     purchasingRef.current = true;
     try {
-      const { responseCode, results } = await InAppPurchases.getProductsAsync(['premium_upgrade']);
+      const { responseCode, results } = await InAppPurchases.getProductsAsync([PREMIUM_ID]);
       if (responseCode !== InAppPurchases.IAPResponseCode.OK || !results?.length) {
         Alert.alert('Product not found', 'Check product ID and App Store Connect status.');
         purchasingRef.current = false;
         return;
       }
-      const res = await InAppPurchases.purchaseItemAsync('premium_upgrade');
-      if (res?.responseCode === InAppPurchases.IAPResponseCode.OK) {
-        setIsPremium(true);
-        await AsyncStorage.setItem('isPremium', 'true');
-      }
+
+      // Do NOT flip premium here; the listener will handle it.
+      await InAppPurchases.purchaseItemAsync(PREMIUM_ID);
+
+      // Fallback: in sandbox, occasionally the listener is late—refresh history once.
+      setTimeout(async () => {
+        try {
+          const hist = await InAppPurchases.getPurchaseHistoryAsync();
+          if (
+            hist.responseCode === InAppPurchases.IAPResponseCode.OK &&
+            hist.results?.some(p => p.productId === PREMIUM_ID)
+          ) {
+            setIsPremium(true);
+            await AsyncStorage.setItem('isPremium', 'true');
+          }
+        } catch {}
+      }, 500);
     } catch (e) {
       Alert.alert('Purchase error', String(e?.message || e));
       purchasingRef.current = false;
@@ -206,7 +235,7 @@ export default function App() {
     try {
       const { responseCode, results } = await InAppPurchases.getPurchaseHistoryAsync();
       if (responseCode === InAppPurchases.IAPResponseCode.OK) {
-        const hasPremium = results?.some(p => p.productId === 'premium_upgrade');
+        const hasPremium = results?.some(p => p.productId === PREMIUM_ID);
         if (hasPremium) {
           setIsPremium(true);
           await AsyncStorage.setItem('isPremium', 'true');

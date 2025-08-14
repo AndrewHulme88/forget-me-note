@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "1130"
-   version = "1.3">
+   LastUpgradeVersion = "1640"
+   version = "1.7">
    <BuildAction
       parallelizeBuildables = "YES"
-      buildImplicitDependencies = "YES">
+      buildImplicitDependencies = "YES"
+      buildArchitectures = "Automatic">
       <BuildActionEntries>
          <BuildActionEntry
             buildForTesting = "YES"
@@ -16,8 +17,8 @@
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
                BuildableName = "forgetmenote.app"
-               BlueprintName = "forgetmenote"
-               ReferencedContainer = "container:forgetmenote.xcodeproj">
+               BlueprintName = "Recollecto"
+               ReferencedContainer = "container:Recollecto.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -26,19 +27,8 @@
       buildConfiguration = "Debug"
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
-      shouldUseLaunchSchemeArgsEnv = "YES">
-      <Testables>
-         <TestableReference
-            skipped = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "00E356ED1AD99517003FC87E"
-               BuildableName = "forgetmenoteTests.xctest"
-               BlueprintName = "forgetmenoteTests"
-               ReferencedContainer = "container:forgetmenote.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
-      </Testables>
+      shouldUseLaunchSchemeArgsEnv = "YES"
+      shouldAutocreateTestPlan = "YES">
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"
@@ -56,10 +46,17 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
             BuildableName = "forgetmenote.app"
-            BlueprintName = "forgetmenote"
-            ReferencedContainer = "container:forgetmenote.xcodeproj">
+            BlueprintName = "Recollecto"
+            ReferencedContainer = "container:Recollecto.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
+      <AdditionalOptions>
+         <AdditionalOption
+            key = "APP_DISTRIBUTOR_ID_OVERRIDE"
+            value = "com.apple.AppStore"
+            isEnabled = "YES">
+         </AdditionalOption>
+      </AdditionalOptions>
       <StoreKitConfigurationFileReference
          identifier = "../../../../../Library/Autosave Information/StoreKit.storekit">
       </StoreKitConfigurationFileReference>
@@ -76,8 +73,8 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
             BuildableName = "forgetmenote.app"
-            BlueprintName = "forgetmenote"
-            ReferencedContainer = "container:forgetmenote.xcodeproj">
+            BlueprintName = "Recollecto"
+            ReferencedContainer = "container:Recollecto.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

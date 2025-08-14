@@ -5,7 +5,7 @@
       location = "group:../../../../Library/Autosave Information/StoreKit.storekit">
    </FileRef>
    <FileRef
-      location = "group:forgetmenote.xcodeproj">
+      location = "group:Recollecto.xcodeproj">
    </FileRef>
    <FileRef
       location = "group:Pods/Pods.xcodeproj">
