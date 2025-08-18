@@ -12,11 +12,7 @@ import {
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const PRIMARY = '#4A4A58';
 
-const AddTask = ({
-  onCancel,
-  onAdd,
-  darkMode
-}) => {
+const AddTask = ({ onCancel, onAdd, darkMode }) => {
   const [name, setName] = useState('');
   const [days, setDays] = useState([]);
 
@@ -41,6 +37,7 @@ const AddTask = ({
       <View style={styles.overlay}>
         <View style={[styles.card, darkMode && styles.darkCard]}>
           <Text style={[styles.title, darkMode && { color: '#fff' }]}>New Task</Text>
+
           <TextInput
             placeholder="Task name"
             value={name}
@@ -48,6 +45,7 @@ const AddTask = ({
             style={[styles.input, darkMode && styles.darkInput]}
             placeholderTextColor={darkMode ? '#ccc' : '#888'}
           />
+
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.daysRow}>
               {DAYS.map((day) => {
@@ -56,10 +54,9 @@ const AddTask = ({
                   <Pressable
                     key={day}
                     onPress={() => toggleDay(day)}
-                    style={[
-                      styles.dayButton,
-                      selected && styles.dayButtonSelected,
-                    ]}
+                    style={[styles.dayButton, selected && styles.dayButtonSelected]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Select ${day}`}
                   >
                     <Text
                       style={[
@@ -74,6 +71,13 @@ const AddTask = ({
               })}
             </View>
           </ScrollView>
+
+          <View style={styles.hintRow}>
+            <Text style={[styles.hintText, darkMode && { color: '#ddd' }]}>
+              Leave all days unselected to schedule for every day.
+            </Text>
+          </View>
+
           <View style={styles.buttonRow}>
             <Pressable onPress={onCancel} style={[styles.button, styles.cancel]}>
               <Text style={styles.buttonText}>Cancel</Text>
@@ -125,7 +129,7 @@ const styles = StyleSheet.create({
   },
   daysRow: {
     flexDirection: 'row',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   dayButton: {
     paddingHorizontal: 10,
@@ -145,6 +149,13 @@ const styles = StyleSheet.create({
   dayTextSelected: {
     color: '#fff',
     fontWeight: '600',
+  },
+  hintRow: {
+    marginBottom: 12,
+  },
+  hintText: {
+    fontSize: 12,
+    color: '#666',
   },
   buttonRow: {
     flexDirection: 'row',
