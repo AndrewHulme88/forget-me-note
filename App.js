@@ -27,7 +27,7 @@ import InfoModal from './components/InfoModal';
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const PREMIUM_ID = 'premium_upgrade';
-const DEV_PREMIUM_TOGGLE = true;
+const DEV_PREMIUM_TOGGLE = false;
 
 // Scheduling guards
 const MIN_LEAD_MS = 60_000;        // never schedule within the next 60s
