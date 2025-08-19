@@ -10,6 +10,7 @@ import {
   Pressable,
   Alert,
   Text,
+  Modal,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
@@ -29,12 +30,45 @@ const PREMIUM_ID = 'premium_upgrade';
 const DEV_PREMIUM_TOGGLE = true;
 
 // Scheduling guards
-const MIN_LEAD_MS = 60_000;           // never schedule within the next 60s
-const MAX_BASE_OCCURRENCES = 10;      // future singles to pre-schedule (no repeats)
-const REPEAT_CAP = 8;                 // initial + up to 7 repeats
+const MIN_LEAD_MS = 60_000;        // never schedule within the next 60s
+const MAX_BASE_OCCURRENCES = 3;    // future singles (no repeats) to pre-schedule
+const REPEAT_CAP = 8;              // initial + up to 7 repeats
+const CATEGORY_ID = 'TASK_REMINDER';
+
+function pad2(n) { return String(n).padStart(2, '0'); }
+function dateKeyLocal(d) {
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+const ensureLead = (d) => {
+  const now = new Date();
+  return (d.getTime() - now.getTime() < MIN_LEAD_MS)
+    ? new Date(now.getTime() + MIN_LEAD_MS)
+    : d;
+};
+
+// --- Ensure notification category is registered before scheduling ---
+const categoriesReadyRef = { current: false, promise: null };
+async function ensureCategoriesRegistered() {
+  if (categoriesReadyRef.current) return;
+  if (categoriesReadyRef.promise) return categoriesReadyRef.promise;
+
+  categoriesReadyRef.promise = (async () => {
+    await Notifications.setNotificationCategoryAsync(CATEGORY_ID, [
+      { identifier: 'SNOOZE_5', buttonTitle: 'Snooze 5m', options: { opensAppToForeground: true } },
+      { identifier: 'SNOOZE_15', buttonTitle: 'Snooze 15m', options: { opensAppToForeground: true } },
+      { identifier: 'STOP_TODAY', buttonTitle: 'Stop today', options: { opensAppToForeground: true, isDestructive: true } },
+    ]);
+    categoriesReadyRef.current = true;
+  })();
+
+  return categoriesReadyRef.promise;
+}
 
 export default function App() {
   const [tasks, setTasks] = useState([]);
+  const tasksRef = useRef(tasks);
+  useEffect(() => { tasksRef.current = tasks; }, [tasks]);
+
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [darkMode, setDarkMode] = useState(false);
   const [showAddScreen, setShowAddScreen] = useState(false);
@@ -43,6 +77,10 @@ export default function App() {
   const [showIntro, setShowIntro] = useState(false);
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
+
+  // Quick Actions modal state
+  const [qa, setQa] = useState(null); // { taskId, dateKey, repeatEveryMins, taskName }
+  const qaBlockUntilRef = useRef(0);  // debounce re-opening right after an action
 
   const slideAnim = useState(new Animated.Value(0))[0];
 
@@ -87,7 +125,7 @@ export default function App() {
     AsyncStorage.setItem('tasks', JSON.stringify(tasks));
   }, [tasks]);
 
-  // Notifications handler
+  // Notifications handler & actions (register early)
   useEffect(() => {
     Notifications.setNotificationHandler({
       handleNotification: async () => ({
@@ -105,9 +143,83 @@ export default function App() {
         sound: 'default',
       });
     }
+
+    // Register actions ASAP on app start
+    ensureCategoriesRegistered();
+
+    // Foreground: show in-app Quick Actions sheet immediately
+    const recv = Notifications.addNotificationReceivedListener((evt) => {
+      const data = evt.request?.content?.data || {};
+      const taskId = data.taskId;
+      const dateKey = data.dateKey || dateKeyLocal(new Date());
+      if (!taskId) return;
+
+      // Debounce & respect stop-today flag
+      if (Date.now() < qaBlockUntilRef.current) return;
+      const t = tasksRef.current.find(tt => tt.id === taskId);
+      if (t?.reminder?.stoppedDates?.[dateKey]) return;
+
+      setQa({
+        taskId,
+        dateKey,
+        repeatEveryMins: Number(data.repeatEveryMins) || 0,
+        taskName: evt.request?.content?.body || 'Reminder',
+      });
+    });
+
+    // When user taps the banner / lock screen (default action), also show Quick Actions
+    const resp = Notifications.addNotificationResponseReceivedListener(async (res) => {
+      const data = res.notification.request.content.data || {};
+      const taskId = data.taskId;
+      const dateKey = data.dateKey || dateKeyLocal(new Date());
+      const repeatEveryMins = Number(data.repeatEveryMins) || 0;
+      const taskName = res.notification.request.content.body || 'Reminder';
+      if (!taskId) return;
+
+      const defaultIds = new Set([
+        Notifications.DEFAULT_ACTION_IDENTIFIER,
+        'com.apple.UNNotificationDefaultActionIdentifier',
+        'expo.notifications.actions.DEFAULT',
+        undefined,
+        null,
+      ]);
+
+      // Debounce & respect stop-today flag
+      if (Date.now() < qaBlockUntilRef.current) return;
+      const t = tasksRef.current.find(tt => tt.id === taskId);
+      if (t?.reminder?.stoppedDates?.[dateKey]) return;
+
+      if (defaultIds.has(res.actionIdentifier)) {
+        setQa({ taskId, dateKey, repeatEveryMins, taskName });
+        return;
+      }
+
+      switch (res.actionIdentifier) {
+        case 'STOP_TODAY':
+          // close immediately, then stop
+          closeQa();
+          await cancelTodayChain(taskId, dateKey, { markStopped: true });
+          break;
+        case 'SNOOZE_5':
+          closeQa();
+          await snooze(taskId, dateKey, 5, repeatEveryMins);
+          break;
+        case 'SNOOZE_15':
+          closeQa();
+          await snooze(taskId, dateKey, 15, repeatEveryMins);
+          break;
+        default:
+          break;
+      }
+    });
+
+    return () => {
+      recv.remove();
+      resp.remove();
+    };
   }, []);
 
-  // iOS permissions
+  // iOS permission request
   useEffect(() => {
     (async () => {
       const { status: existing } = await Notifications.getPermissionsAsync();
@@ -127,7 +239,7 @@ export default function App() {
     })();
   }, []);
 
-  // IAP: listener + hydrate
+  // In App Purchases
   useEffect(() => {
     let mounted = true;
 
@@ -145,9 +257,7 @@ export default function App() {
         try {
           if (
             purchase.productId === PREMIUM_ID &&
-            (purchase.transactionReceipt ||
-              purchase.acknowledged === false ||
-              purchase.acknowledged === undefined)
+            (purchase.transactionReceipt || purchase.acknowledged === false || purchase.acknowledged === undefined)
           ) {
             setIsPremium(true);
             await AsyncStorage.setItem('isPremium', 'true');
@@ -168,8 +278,10 @@ export default function App() {
           await InAppPurchases.connectAsync();
           iapConnectedRef.current = true;
         }
+
         const hist = await InAppPurchases.getPurchaseHistoryAsync();
         if (!mounted) return;
+
         if (hist.responseCode === InAppPurchases.IAPResponseCode.OK) {
           const hasPremium = hist.results?.some(p => p.productId === PREMIUM_ID);
           if (hasPremium) {
@@ -243,18 +355,46 @@ export default function App() {
   // ===== Reminder helpers =====
   const isTaskCompletedToday = (task) => !!task?.done?.[new Date().toDateString()];
 
-  // Cancel all scheduled notifications for a task and clear reminder in state (optional)
-  const cancelReminder = async (taskId, { clearState = true } = {}) => {
-    const task = tasks.find(t => t.id === taskId);
-    const ids = task?.reminder?.notifIds || [];
-    for (const nid of ids) {
+  // Cancel ALL notifications for a task (used on delete / disable premium)
+  const cancelAllForTask = async (taskId, { clearState = true } = {}) => {
+    const task = tasksRef.current.find(t => t.id === taskId);
+    const map = task?.reminder?.notifMap || {};
+    const allIds = Object.values(map).flat();
+
+    // legacy fallbacks
+    const legacy = [
+      ...(task?.reminder?.notifIds || []),
+      ...(task?.reminder?.notifId ? [task.reminder.notifId] : []),
+    ];
+    for (const nid of [...allIds, ...legacy]) {
       try { await Notifications.cancelScheduledNotificationAsync(nid); } catch {}
     }
     if (clearState) {
-      setTasks(prev =>
-        prev.map(task => (task.id === taskId ? { ...task, reminder: null } : task))
-      );
+      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, reminder: null } : t));
     }
+  };
+
+  // Cancel ONLY today's chain (leave future days intact)
+  const cancelTodayChain = async (taskId, dateKey = dateKeyLocal(new Date()), opts = { markStopped: false }) => {
+    const task = tasksRef.current.find(t => t.id === taskId);
+    if (!task?.reminder) return;
+
+    const ids = task.reminder.notifMap?.[dateKey] || [];
+    for (const nid of ids) {
+      try { await Notifications.cancelScheduledNotificationAsync(nid); } catch {}
+    }
+
+    const newMap = { ...(task.reminder.notifMap || {}) };
+    delete newMap[dateKey];
+
+    const newStopped = { ...(task.reminder.stoppedDates || {}) };
+    if (opts.markStopped) newStopped[dateKey] = true;
+
+    setTasks(prev => prev.map(t =>
+      t.id === taskId
+        ? { ...t, reminder: { ...t.reminder, notifMap: newMap, stoppedDates: newStopped } }
+        : t
+    ));
   };
 
   // Generate the next N valid occurrences strictly in the future (>= MIN_LEAD_MS)
@@ -279,52 +419,73 @@ export default function App() {
     return out;
   }
 
+  const iosInterruptionLevel =
+    Platform.OS === 'ios' ? Notifications.IOSNotificationInterruptionLevel?.TIME_SENSITIVE : undefined;
+
   const scheduleReminder = async (taskId, reminderObj) => {
     if (!isPremium || !reminderObj?.time) return;
 
     const { status } = await Notifications.getPermissionsAsync();
     if (status !== 'granted') return;
 
-    const task = tasks.find(t => t.id === taskId);
+    // Ensure actions exist before any schedules
+    await ensureCategoriesRegistered();
+
+    const task = tasksRef.current.find(t => t.id === taskId);
     if (!task) return;
 
-    // Clear previous schedules but keep reminder in state
-    await cancelReminder(taskId, { clearState: false });
+    // Preserve any stop flags; clear schedules
+    const prevStopped = task.reminder?.stoppedDates || {};
+    await cancelAllForTask(taskId, { clearState: false });
+    setTasks(prev => prev.map(t =>
+      t.id === taskId ? { ...t, reminder: { ...reminderObj, notifMap: {}, stoppedDates: { ...prevStopped } } } : t
+    ));
 
     const picked = new Date(reminderObj.time);
     const hour = picked.getHours();
     const minute = picked.getMinutes();
-    const skipToday = isTaskCompletedToday(task);
+    const skipToday = isTaskCompletedToday(task) || !!prevStopped[dateKeyLocal(new Date())];
 
-    // Build upcoming base dates
     const upcoming = generateNextOccurrences({
       hour,
       minute,
-      selectedDays: task.days,            // [] or ['Mon','Wed',...]
+      selectedDays: task.days,
       count: MAX_BASE_OCCURRENCES,
       skipToday,
     });
     if (upcoming.length === 0) return;
 
-    const notifIds = [];
-    const baseContent = {
+    const baseContent = (taskName, extra = {}) => ({
       title: 'Task Reminder',
-      body: `Don't forget: ${task.name || 'a task'}`,
+      body: taskName || 'Reminder',
       sound: 'default',
-    };
+      categoryIdentifier: CATEGORY_ID,
+      ...(iosInterruptionLevel ? { interruptionLevel: iosInterruptionLevel } : {}),
+      ...extra,
+    });
 
-    const scheduleAt = async (dateObj, bodyText) => {
+    const scheduleAt = async (dateObj, extraData = {}) => {
+      const when = ensureLead(dateObj);
       const id = await Notifications.scheduleNotificationAsync({
-        content: bodyText ? { ...baseContent, body: bodyText } : baseContent,
-        // Best-practice: pass the Date directly as trigger
-        trigger: dateObj,
+        content: { ...baseContent(task.name), data: extraData },
+        trigger: when, // pass Date directly
       });
-      notifIds.push(id);
+      return id;
     };
 
-    // 1) First upcoming: base + in-day repeats (stop at midnight)
-    const firstAt = upcoming[0];
-    await scheduleAt(firstAt, baseContent.body);
+    const localMap = {};
+
+    // First upcoming day: base + in-day repeats
+    const firstAt = ensureLead(upcoming[0]);
+    const firstKey = dateKeyLocal(firstAt);
+    localMap[firstKey] = localMap[firstKey] || [];
+
+    const firstId = await scheduleAt(firstAt, {
+      taskId,
+      dateKey: firstKey,
+      repeatEveryMins: Number(reminderObj.repeatEveryMins) || 0,
+    });
+    localMap[firstKey].push(firstId);
 
     const iv = Number(reminderObj.repeatEveryMins) || 0;
     if (iv > 0) {
@@ -333,24 +494,98 @@ export default function App() {
       endOfDay.setHours(23, 59, 59, 999);
 
       for (let i = 1; i < REPEAT_CAP; i++) {
-        const t = new Date(firstAt.getTime() + i * ivMs);
-        if (t > endOfDay) break; // don't roll into the next day
-        await scheduleAt(t, 'Still due');
+        const t = ensureLead(new Date(firstAt.getTime() + i * ivMs));
+        if (t > endOfDay) break;
+        const rid = await scheduleAt(t, {
+          taskId,
+          dateKey: firstKey,
+          repeatEveryMins: iv,
+        });
+        localMap[firstKey].push(rid);
       }
     }
 
-    // 2) Remaining upcoming days: base only
+    // Remaining upcoming days: base only
     for (let i = 1; i < upcoming.length; i++) {
-      await scheduleAt(upcoming[i], baseContent.body);
-      if (notifIds.length >= 50) break; // safety against platform caps
+      const d = ensureLead(upcoming[i]);
+      const k = dateKeyLocal(d);
+      const id = await scheduleAt(d, {
+        taskId,
+        dateKey: k,
+        repeatEveryMins: iv,
+      });
+      localMap[k] = localMap[k] || [];
+      localMap[k].push(id);
+      if (Object.values(localMap).flat().length >= 50) break;
     }
 
-    // Persist reminder + ids
     setTasks(prev =>
       prev.map(t =>
-        t.id === taskId ? { ...t, reminder: { ...reminderObj, notifIds } } : t
+        t.id === taskId
+          ? { ...t, reminder: { ...reminderObj, notifMap: localMap, stoppedDates: { ...prevStopped } } }
+          : t
       )
     );
+  };
+
+  // Snooze: cancel today's chain and reschedule today only starting in X minutes
+  const scheduleTodayChain = async (taskId, startAt, repeatEveryMins) => {
+    const task = tasksRef.current.find(t => t.id === taskId);
+    if (!task?.reminder) return;
+
+    await ensureCategoriesRegistered();
+
+    const k = dateKeyLocal(startAt);
+    // clear existing today's AND clear stop flag (snooze overrides a stop)
+    await cancelTodayChain(taskId, k, { markStopped: false });
+
+    const endOfDay = new Date(startAt);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const ids = [];
+    const scheduleAt = async (dateObj) => {
+      const when = ensureLead(dateObj);
+      const id = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Task Reminder',
+          body: task.name || 'Reminder',
+          sound: 'default',
+          categoryIdentifier: CATEGORY_ID,
+          ...(iosInterruptionLevel ? { interruptionLevel: iosInterruptionLevel } : {}),
+          data: { taskId, dateKey: k, repeatEveryMins: Number(repeatEveryMins) || 0 },
+        },
+        trigger: when,
+      });
+      ids.push(id);
+    };
+
+    const first = ensureLead(new Date(startAt));
+    await scheduleAt(first);
+
+    const iv = Number(repeatEveryMins) || 0;
+    if (iv > 0) {
+      const ivMs = iv * 60 * 1000;
+      for (let i = 1; i < REPEAT_CAP; i++) {
+        const t = ensureLead(new Date(first.getTime() + i * ivMs));
+        if (t > endOfDay) break;
+        await scheduleAt(t);
+      }
+    }
+
+    // merge into notifMap and clear any stopped flag for that date
+    setTasks(prev => prev.map(t => {
+      if (t.id !== taskId) return t;
+      const prevMap = t.reminder?.notifMap || {};
+      const prevStopped = { ...(t.reminder?.stoppedDates || {}) };
+      delete prevStopped[k];
+      return { ...t, reminder: { ...t.reminder, notifMap: { ...prevMap, [k]: ids }, stoppedDates: prevStopped } };
+    }));
+  };
+
+  const snooze = async (taskId, dateKey, minutes, repeatEveryMins) => {
+    const start = new Date();
+    start.setMinutes(start.getMinutes() + minutes);
+    await scheduleTodayChain(taskId, start, repeatEveryMins);
   };
 
   // ===== DEV premium toggle =====
@@ -360,9 +595,9 @@ export default function App() {
     await AsyncStorage.setItem('isPremium', next ? 'true' : 'false');
 
     if (!next) {
-      for (const t of tasks) {
+      for (const t of tasksRef.current) {
         if (t.reminder) {
-          await cancelReminder(t.id);
+          await cancelAllForTask(t.id);
         }
       }
       Alert.alert('Premium disabled (dev)', 'All scheduled reminders were cleared.');
@@ -373,26 +608,28 @@ export default function App() {
 
   const toggleTask = async (id) => {
     if (!canToggle) return;
-    const dateKey = selectedString;
+    const todayDoneKey = new Date().toDateString();
+    const todayDateKey = dateKeyLocal(new Date());
 
     setTasks(prev =>
       prev.map(task =>
         task.id === id
-          ? { ...task, done: { ...task.done, [dateKey]: !task.done?.[dateKey] } }
+          ? { ...task, done: { ...task.done, [todayDoneKey]: !task.done?.[todayDoneKey] } }
           : task
       )
     );
 
-    // If marking done now, clear any pending chain for today
-    const t = tasks.find(x => x.id === id);
-    const willBeDone = !(t?.done?.[dateKey]);
+    // If marking done for today, stop ONLY today's chain
+    const t = tasksRef.current.find(x => x.id === id);
+    const wasDone = !!t?.done?.[todayDoneKey];
+    const willBeDone = !wasDone;
     if (willBeDone) {
-      await cancelReminder(id);
+      await cancelTodayChain(id, todayDateKey, { markStopped: true });
     }
   };
 
   const deleteTask = async (id) => {
-    await cancelReminder(id);
+    await cancelAllForTask(id);
     setTasks(prev => prev.filter(task => task.id !== id));
   };
 
@@ -452,6 +689,68 @@ export default function App() {
     }
   }, [showUpgradePrompt]);
 
+  // helpers for QA modal
+  const closeQa = () => {
+    setQa(null);
+    qaBlockUntilRef.current = Date.now() + 1500; // brief block to avoid immediate re-open
+  };
+
+  // === Quick Actions Modal ===
+  const QuickActions = () => {
+    if (!qa?.taskId) return null;
+    return (
+      <Modal
+        visible
+        transparent
+        animationType="fade"
+        onRequestClose={closeQa}
+      >
+        <Pressable style={styles.qaOverlay} onPress={closeQa}>
+          <Pressable style={[styles.qaCard, darkMode && { backgroundColor: '#2a2a2d' }]} onPress={() => {}}>
+            <Text style={[styles.qaTitle, darkMode && { color: '#fff' }]}>
+              {qa.taskName || 'Reminder'}
+            </Text>
+            <View style={styles.qaRow}>
+              <Pressable
+                style={[styles.qaBtn, styles.qaPrimary]}
+                onPress={async () => {
+                  const { taskId, dateKey } = qa;
+                  closeQa();
+                  await cancelTodayChain(taskId, dateKey, { markStopped: true });
+                }}
+              >
+                <Text style={styles.qaBtnText}>Stop today</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.qaBtn, { marginLeft: 8 }]}
+                onPress={async () => {
+                  const { taskId, dateKey, repeatEveryMins } = qa;
+                  closeQa();
+                  await snooze(taskId, dateKey, 5, repeatEveryMins);
+                }}
+              >
+                <Text style={styles.qaBtnText}>Snooze 5m</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.qaBtn, { marginLeft: 8 }]}
+                onPress={async () => {
+                  const { taskId, dateKey, repeatEveryMins } = qa;
+                  closeQa();
+                  await snooze(taskId, dateKey, 15, repeatEveryMins);
+                }}
+              >
+                <Text style={styles.qaBtnText}>Snooze 15m</Text>
+              </Pressable>
+            </View>
+            <Pressable onPress={closeQa} style={[styles.qaClose]}>
+              <Text style={[styles.qaCloseText]}>Close</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    );
+  };
+
   // Modal screens
   if (showAddScreen) {
     return (
@@ -507,13 +806,14 @@ export default function App() {
               darkMode={darkMode}
               onSetReminder={async (id, reminder) => {
                 if (!reminder) {
-                  await cancelReminder(id);
+                  await cancelAllForTask(id);
                   return;
                 }
                 if (!isPremium) {
                   setShowUpgradePrompt(true);
                   return;
                 }
+                // Store and schedule
                 setTasks(prev => prev.map(t => t.id === id ? { ...t, reminder } : t));
                 await scheduleReminder(id, reminder);
               }}
@@ -556,6 +856,9 @@ export default function App() {
       )}
 
       <InfoModal visible={showInfo} onClose={() => setShowInfo(false)} darkMode={darkMode} />
+
+      {/* In-app Quick Actions for notifications */}
+      <QuickActions />
 
       <Footer
         darkMode={darkMode}
@@ -617,5 +920,49 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '700',
     fontSize: 12,
+  },
+
+  // Quick Actions styling
+  qaOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'flex-end',
+  },
+  qaCard: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  qaTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 12,
+    color: '#333',
+  },
+  qaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  qaBtn: {
+    backgroundColor: '#6c6f7d',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+  },
+  qaPrimary: {
+    backgroundColor: '#4A4A58',
+  },
+  qaBtnText: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+  qaClose: {
+    alignSelf: 'center',
+    paddingVertical: 10,
+  },
+  qaCloseText: {
+    color: '#666',
+    fontWeight: '600',
   },
 });
